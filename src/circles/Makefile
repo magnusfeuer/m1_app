@@ -11,7 +11,7 @@ $(DUMMY_TARGET): src_images
 
 src_images:
 	@echo "--- Unpacking DDS source images."
-	for i in xa*.tfz; do tar xzf $i; done
+	for i in xa*.tgz; do tar xzf $$i; done
 
 clean:
 	rm -rf $(TARGET_FRAMEBUFFER)_dds src_images built
