@@ -1,0 +1,1685 @@
+// -*- c++ -*-
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+//
+// GUI definition of dialogs, buttons,e tc.
+//
+
+library GUI {
+    string systemFont = "BankGothic Md BT";
+    int menuFontSize = 32;
+    int dialogFontSize = 16;
+    int logDigitFontSize = 10;
+    int logLabelFontSize = 20;
+    int announceFontSize = 24;
+
+    // 
+    // Workaround
+    //
+    type BoolTrigger {
+	event bool t;
+    };
+
+    //
+    // Workaround
+    //
+    type SignedTrigger {
+	event signed s;
+    };
+
+    type UnsignedTrigger {
+	event unsigned u;
+    };
+
+    //
+    // A GUIOption is used by GUISIngleChoice. GUIMultipleChoice and GUIPopUpMenu
+    //
+    type Option {
+         string text;
+         signed value;
+    };
+    
+    type SingleChoice {
+         Option entries[] = {};
+         public event signed selected = -1; // Will be seto to  GUIOption:value by GUI when a menu option has been selected
+    };
+    
+    //
+    // First frame shown when button is up.
+    // Last frame shown when button is down.
+    //    
+    type Button: DDS {
+	//
+	// Number of secons for the button to go
+	// from the first to the last frame when it
+	// is declicked.
+	//
+
+	//
+	// Will be set when the button is clicked.
+	//
+        public event bool clicked = false; 
+
+	//
+	// Will be set when the button is down
+	//
+        public event bool down = false;
+
+	//
+	// buttonEnabled 
+	//
+        public event bool buttonEnabled = true;
+
+	script buttonEnabled when buttonEnabled {
+	    value = 0.33; // Unselected
+	}
+
+	script buttonEnabled when !buttonEnabled {
+	    value = 0.0; // Faded
+	    down = false;
+	}
+
+	script message when buttonEnabled && message.name == buttonDown {
+	    //	    	    printf("GUI:Button:(DOWN) message = %p\n", message);
+	    down = true;
+	    value = 1.0;
+	}
+
+	script message when buttonEnabled && message.name == buttonUp {
+	    //	    	    printf("GUI:Button:(UP) message = %p\n", message);
+	    down = false;
+	    // Button up from last to first frame.
+	    value = 0.33;
+
+	    // Check if we have mouse-over. If so, we are clicked.
+	    if ((message.x != -1.0) && (message.y != -1.0))
+		clicked = true;
+	}
+
+	script Button {
+	  wantFocus = true;
+	  exclusiveFocus = true;
+	  messageMask = @Message.message_mask_button;
+	  height <- contentHeight;
+	  width <- contentWidth;
+	  *height = contentHeight;
+	  *width = contentWidth;
+
+	  // FIXED THIS TO MAKE BUTTONS ENABLED!
+	  *buttonEnabled = buttonEnabled;
+	}
+    };
+
+
+    //
+    // Radio button layer.
+    // This layer should only have RadioButton insntances installed as children.
+    //
+    type RadioButtonLayer: Layer {
+	event signed selectedValue = -1;
+	wantFocus = true;
+	messageMask = @Message.message_mask_button;
+    };
+
+    //
+    // The radio button is basically a Button, but with three frames:
+    // Frame 0: Unselected, not pressed.
+    // Frame 1: Selected, not pressed.
+    // Frame 2: Selected, pressed.
+    //
+    type RadioButton: DDS {
+	//
+	// Will be set when the button is selected.
+	//
+        public event bool selected = false; 
+
+	//
+	// The parent RadioButtonLayer. Will be set by list constructor.
+	//
+        public RadioButtonLayer parent = nil;     
+
+	//
+	// Will be set when the button is down
+	//
+        public event bool down = false;
+
+	//
+	// The value to set parent.selected to
+	// when this button is pressed.
+	//
+        public signed selectedValue = 0;
+
+	// Button 1 up
+	script message when (message.name==buttonUp) && (message.value==1) {
+	    //	    printf("GUI:RadioButton:(1) message = %p\n", message);
+	    down = false;
+	    // Button up from last to first frame.
+
+	    // Check if we have mouse-over. If so, we are selected
+	    if ((message.x != -1.0) && (message.y != -1.0)) {
+		value = 0.5; // Frame 1
+		if (parent != nil) {
+		    signed i;
+		    parent.selectedValue = selectedValue;
+
+		    // Reset all other children
+		    foreach i in [0:size(parent.children) - 1] {
+			if (@RadioButton(parent.children[i]).selectedValue != 
+			    parent.selectedValue) 
+			    @RadioButton(parent.children[i]).value = 0.0;
+		    }
+		}
+	    }
+	    else 
+		value = 0.0; // Frame 0
+	}
+
+	// Button1 down
+	script message when (message.name==buttonDown) && (message.value==1) {
+	    //	    printf("GUI:RadioButton:(2) message = %p\n", message);
+	    down = true;
+	    value = 1.0; //  Frame 3.
+	}
+
+	value = 0;
+	wantFocus = true;
+	messageMask = @Message.message_mask_button;
+    };
+
+    //
+    // Spin field.
+    // A text field allowing the user to click next/prev buttons under
+    // it in order to rotate between all available selections.
+    //
+    type SpinField: Layer {
+	//
+	// Strings of values that the user can choose between.
+	//
+        public Option entries[] = {}; 
+	
+	//
+	// Selected will be set to the Options.value of the selected item.
+	//
+        public event unsigned selected = 0; 
+
+	//
+	// Current index. Can be set to manually force
+	// a specific entry to be displayed
+	//
+	event signed index = -1;
+
+	//
+	// Set this to true to get the arrows before and after the 
+	// text field, instead of under it
+	//
+	event bool sideArrows = false;
+
+	//
+	// The text field to show the value in.
+	//
+	Text textField = Text {
+	    fontName = systemFont,
+	    fontSize = 40,
+	    fontWeight = medium,
+	    fontColor = 0xCCCCCC
+	}; 
+
+	Button prev = Button { ddsFile = "dds/OS-Symbol-Back.dds" };
+	Button next = Button { ddsFile = "dds/OS-Symbol-Next.dds" };
+	Shape frame = Shape { 
+	    borderWidth = 0, 
+	    borderColor = 0x000000, 
+	    fillColor = 0x000000, 
+	    shape = rectangle, 
+	    fill = true,
+	    transparency = 0.7
+	};
+        event bool prev_down <- prev.down;
+        event bool next_down <- next.down;
+        event bool prev_clicked <- prev.clicked;
+        event bool next_clicked <- next.clicked;
+
+	Timer auto_repeat = nil;
+	float auto_repeat_interval = 0.0;
+	event float auto_repeat_tick;
+
+	script next_clicked when next_clicked == true && size(entries) > 0 {
+	    next_clicked = false;
+	    index = index + 1;
+	    if (index == size(entries)) {
+		index = 0;
+	    }
+	    textField.text = entries[index].text;
+	    selected = entries[index].value;
+	}
+
+ 	script prev_clicked when prev_clicked == true && size(entries) > 0 {
+	    prev_clicked = false;
+ 	    index = index - 1;
+
+ 	    if (index == -1)
+ 		index = size(entries) - 1;
+
+ 	    textField.text = entries[index].text;
+	    selected = entries[index].value;
+ 	}
+
+	script selected {
+	    signed ind;
+	    // Locate the correct entries index
+	    foreach ind in [0 : size(entries) - 1] {
+		if (entries[ind].value == selected) {
+		    *index = ind;
+		    //		    textField.text = entries[index].text;
+		    break; 
+		}
+	    }
+	}
+
+	script index {
+	    if (index >= 0 && index < size(entries)) {
+		textField.text = entries[index].text;
+		selected = entries[index].value;
+	    }
+	    else 
+		textField.text = "";
+	}
+
+	//
+	// Next down will just setup the timer that 
+	//
+	script next_down || prev_down {
+	    // If button is up, disable auto repeat and return.
+	    if (!next_down && !prev_down) {
+		auto_repeat = nil;
+		auto_repeat_tick <- nil;
+		break;
+	    }
+
+	    // If no auto_repeat has been setup, start it now with 
+	    // 0.5 seconds repeat interval.
+	    if (auto_repeat == nil) {
+		auto_repeat_interval = 0.3;
+		auto_repeat = Timer { cycleInterval = 1.0 };
+		auto_repeat_tick <-auto_repeat.fraction;
+		break;
+	    }
+	}
+
+	// Auto repeat timer has reached zero, 
+
+	// move selection forward or backward.
+	script auto_repeat_tick when auto_repeat != nil && auto_repeat_tick >= auto_repeat_interval {
+	    if (next_down) {
+		index = index + 1;
+		if (index == size(entries))
+		    index = 0;
+		if (size(entries) > 0)
+		    textField.text = entries[index].text;
+		else
+		    textField.text = "";
+	    }
+
+	    if (prev_down) {
+		index = index - 1;
+		if (index == -1)
+		    index = size(entries) - 1;
+
+		if (size(entries) > 0)
+		    textField.text = entries[index].text;
+		else
+		    textField.text = "";
+	    }
+	    
+	    if (auto_repeat_interval > 0.1) {
+		auto_repeat_interval = auto_repeat_interval / 1.5;
+	    }
+	    auto_repeat = Timer { cycleInterval = 1.0 };
+	    auto_repeat_tick <- auto_repeat.fraction;
+	}
+
+	// Constructor 
+	index = 0;
+	children = { frame, textField, prev, next
+// Debug border
+//MAFE
+//  		     ,  @Shape { 
+//  			borderWidth = 2, 
+//  			borderColor = 0xFFFFFF, 
+//  			shape = rectangle, 
+//  			fill = false,
+//  			top = 0,
+//  			left = 0,
+//  			contentHeight <- height,
+//  			contentWidth <- width
+//  		    }
+	};
+	frame.contentWidth <- (sideArrows?(width - (prev.contentWidth + next.contentWidth - 75)):width); 
+	frame.contentHeight <- (sideArrows?height:(height - prev.contentHeight + 37));
+	prev.top <- (sideArrows?-24:(frame.top + frame.contentHeight - 20));
+	next.top <- prev.top;
+	prev.height <- prev.contentHeight;
+	prev.width <- prev.contentWidth; 
+	next.height <- next.contentHeight;
+	next.width <- next.contentWidth; 
+
+	prev.left <- (sideArrows?-20:-24);
+	next.left <- (sideArrows?(frame.left + frame.contentWidth - 20):(frame.contentWidth - next.contentWidth + 19));
+
+	frame.left <- (sideArrows?prev.contentWidth - 38:0);
+
+	textField.left <- (frame.left + (frame.contentWidth /2 - textField.contentWidth / 2)); // Center.
+	textField.top <- (frame.top + (frame.contentHeight /2 - textField.contentHeight / 2)); // Center.
+
+	if (size(entries) > 0)
+	    textField.text = entries[index].text;
+
+	transparency = 0;
+	wantFocus = true;
+	messageMask = @Message.message_mask_button;
+    };
+
+    //
+    // Manager for all dialogs.
+    //
+    type DialogManager:Layer {
+	// int dialogCounter = 0;
+	event queue Layer addDialog = nil;
+	event queue Layer removeDialog = nil;
+	
+	//
+	// Add at end of self.
+	//
+	script addDialog when addDialog != nil {
+	    //	    printf("Adding dialog\n");
+	    children += addDialog;
+	    exclusiveFocus = true;
+	    addDialog = nil;
+	}
+
+	//
+	// Remove and compact.
+	//
+	script removeDialog when removeDialog != nil {
+	    //	    printf("Removing dialog [%d] Children[%p].\n", refcount(removeDialog), children);
+	    children -= removeDialog;
+	    removeDialog = nil;
+
+	    if (size(children) == 0)
+		exclusiveFocus = false;
+	}
+
+	script DialogManager {
+	    wantFocus = true;
+	    messageMask = @Message.message_mask_button;
+	    top <- (.ScreenLib.realYRes - .ScreenLib.yRes) / 2;
+	    left <- (.ScreenLib.realXRes - .ScreenLib.xRes) / 2;
+	    height <- .ScreenLib.yRes;
+	    width <- .ScreenLib.xRes;
+	}
+    };
+
+    DialogManager dialogManager = @DialogManager {};
+
+    //
+    // Background DDS file
+    //
+    type BGDDS: DDS {
+	//
+	// topOffset describes how far down from upper edge the
+	// actual bg area starts. Everything above that is shadow.
+	//
+        public event float topOffset;
+
+	// Left offset for BG area.
+        public event float leftOffset;
+
+	// The width of the BG area (excluding shadow)
+        public event float bgWidth;
+
+	// The height of the BG area (excluding shadow)
+        public event float bgHeight;
+    };
+
+    //
+    // All standard backgrounds are declared here.
+    //
+    BGDDS dlg_bg_497x279 = BGDDS { ddsFile = "dds/OS-Dialog-BlackAlum-497x279.dds", topOffset = 50, leftOffset = 62, bgWidth = 466, bgHeight = 250 };
+    BGDDS dlg_bg_497x360 = BGDDS { ddsFile = "dds/OS-Dialog-BlackAlum-497x360.dds", topOffset = 50, leftOffset = 62, bgWidth = 466, bgHeight = 328 };
+    BGDDS dlg_bg_600x410 = BGDDS { ddsFile = "dds/OS-Dialog-BlackAlum-600x410.dds", topOffset = 45, leftOffset = 62, bgWidth = 568, bgHeight = 376 };
+    BGDDS dlg_bg_357x410 = BGDDS { ddsFile = "dds/OS-Dialog-BlackAlum-357x410.dds", topOffset = 45, leftOffset = 75, bgWidth = 302, bgHeight = 377 };
+    BGDDS dlg_bg_410x236 = BGDDS { ddsFile = "dds/OS-Dialog-BlackAlum-410x236.dds", topOffset = 50, leftOffset = 62, bgWidth = 380, bgHeight = 202 };
+    BGDDS dlg_bg_410x410 = BGDDS { ddsFile = "dds/OS-Dialog-BlackAlum-410x410.dds", topOffset = 40, leftOffset = 62, bgWidth = 380, bgHeight = 377 };
+
+
+    //
+    // A scrollable pane that can be installed as a single child under pane.
+    //
+    type ScrollPane: Layer {
+	public event bool setup;
+	public event bool cleanup;
+	public event int currentPage;
+	public event bool prev; // Go back one page.
+	public event bool next; // Go forward one page.
+        public event bool prevActive; // Are there previous pages available.
+        public event bool nextActive; // Are there subsequent pages available
+        public float scrollTime = 0.5; // How long to scroll to next/prev page.
+        public event float pageWidth = 0.0;    // How wide is each page.
+	public event int pageCount;
+	int i;
+
+	//
+	// Trigger this after all children have been installed.
+	//
+	script setup {
+	    //
+	    // Calculate pane width.
+	    //
+	    height = 0;
+	    width = 0;
+	    foreach i in [0 : size(children) - 1 ] {
+		if (children[i].top + children[i].contentHeight > height)
+		    height = children[i].top + children[i].contentHeight;
+
+		if (children[i].top + children[i].height > height)
+		    height = children[i].top + children[i].height;
+
+		if (children[i].left + children[i].contentWidth > width)
+		    width = children[i].left + children[i].contentWidth;
+
+		if (children[i].left + children[i].width > width)
+		    width = children[i].left + children[i].width;
+
+		currentPage = 0;
+		top = 0;
+		left = 0;
+
+		pageCount = trunc((width - 1) / pageWidth) + 1; 
+		*prevActive = false;
+		if (pageCount > 1) {
+		    *nextActive = true;
+		} else {
+		    *nextActive = false;
+		}
+// 		printf("children[%d].left[%f]/width[%f] width[%f] pageWidth[%f] pageCount[%d]\n", 
+// 		       i, children[i].left, children[i].width,
+// 		       width, pageWidth, pageCount);
+	    }
+	}
+
+	script cleanup {
+	    int ind;
+	    //	    printf("ScrollPane: cleanup\n");
+	    if (children != nil) {
+		foreach ind  in [0:size(children)-1] {
+		    children[ind].top <- nil;
+		    children[ind].left <- nil;
+		    children[ind].height <- nil;
+		    children[ind].width <- nil;
+		    children[ind].contentWidth <- nil;
+		    children[ind].contentHeight <- nil;
+		}
+	    }
+	    pageWidth <- nil;
+	    currentPage <- nil;
+	    prevActive <- nil;
+	    nextActive <- nil;
+	    pageCount <- nil;
+	    setup <- nil;
+	    cleanup <- nil;
+	    prev <- nil;
+	    next <- nil;
+	    top <- nil;
+	    left <- nil;
+	    height <- nil;
+	    width <- nil;
+	}
+	
+	// Scroll to previous page.
+	script prev when currentPage > 0 {
+//	    printf("PREV\n");
+	     left <- @ScalarInterpolator { 
+		 key = { 0.0, 1.0 },
+		 keyValue = { 
+		     (currentPage - 0.0) *  -1.0 * pageWidth,
+		     (currentPage - 1.0) *  -1.0 * pageWidth 
+                 },
+		 value = currentPage * -1.0 * pageWidth,
+		 fraction <- @Timer { cycleInterval = scrollTime, autoDisconnect = true }.fraction
+	     }.value;
+	     currentPage = currentPage - 1;
+
+	     if (currentPage == 0) {
+		 *prevActive = false;
+	     }
+
+	     *nextActive = true;
+	 }
+
+	// Scroll to next page.
+	 script next when currentPage < pageCount - 1 {
+
+//	    printf("NEXT currentPage[%d] pageCount[%d] pageWidth[%f] scrollTime[%f]\n", 
+// 		   currentPage,
+// 		   pageCount,
+// 		   pageWidth,
+// 		   scrollTime);
+
+	     left <- @ScalarInterpolator { 
+		 key = { 0.0, 1.0 },
+		 keyValue = { currentPage * -1.0 * pageWidth , (currentPage + 1) * -1.0 * pageWidth },
+		 value = currentPage * -1.0 * pageWidth,
+		 fraction <- @Timer { cycleInterval = scrollTime, autoDisconnect = true }.fraction
+	     }.value;
+
+	     *prevActive = true;
+
+	     currentPage = currentPage + 1;
+
+	     if (currentPage == pageCount - 1) 
+		 *nextActive = false;
+	 }
+    };
+
+    //
+    // DialogBase
+    // Use Dialog.pane to install your own stuff.
+    // Subscribe to confirmed, which will be set to true or false depending
+    // on if the ok or cancel button was clicked.
+    //
+    type DialogBase: Layer {
+
+	//
+	// Set show to true to pop dialog.
+	// Dialog will unpop when ok or cancel is pressed.
+	// 
+        public event bool show = false;
+
+	// 
+	// Is this dialog system modal?
+	// If set, and this dialog is top (last in the children list)
+	// nothing else will get events.
+	//
+        public bool modal = false;
+
+	//
+	// Confirmed will be set to true if ok is clicked.
+	// If cancel is clicked, confirmed is set to false.
+	//
+        public event bool confirmed = false; 
+
+	public Layer buttons = Layer { wantFocus = true};
+
+	//
+	// The shadow DDS file to use
+	//
+	public string buttonShadowDDSFile = "dds/OS-Button-Shadow.dds" ;
+
+	//
+	// If button shadows are wanted, install the original buttons
+	// as children under buttonShadow. Do not use the same layer
+	// as buttons, but rather do a new layer with the same content
+	//
+	public Layer buttonShadow = nil;
+
+	//
+        // OS-Button-Shadow.dds is bigger than OS-Symbol-*.dds and
+	// must thus be offset.
+	//
+        public float buttonShadowHOffset = -44.0; 
+        public float buttonShadowVOffset = -30.0;
+	public Layer pane = Layer {};
+
+	// Default bgDDS
+        public BGDDS bgDDS = dlg_bg_497x360;
+
+	public event signed state = 0; // 0 == invislbe, 1 = setup , 2 == fadein, 3 = visible 4 = fadeout.
+
+	// My manager.
+        public DialogManager manager = dialogManager;
+
+        public bool debug = false; // Draw lines around pane and button boxes
+
+	// This layer is placed directly on top of bgDDS since DDS cannot
+	// host children (it seems).
+	// It's children will be pane and buttons.
+	Layer mainLayer = @Layer {
+	    wantFocus = true, exclusiveFocus = true
+	};
+
+	script transparency when show == false && state == 4 && transparency == 1.0 {
+	    //	    printf("DialogBase: Cleanup\n");
+	    transparency <- nil;
+	    if (manager != nil)  {
+		int ind;
+		manager.removeDialog = this;
+		manager = nil;
+		// Break debugging border subscriptions.
+		if (debug) {
+		    if (mainLayer != nil && size(mainLayer.children) >= 2 && mainLayer.children[1] != nil) {
+			@Shape(mainLayer.children[1]).top <- nil;
+			@Shape(mainLayer.children[1]).left <- nil;
+			@Shape(mainLayer.children[1]).contentHeight <- nil;
+			@Shape(mainLayer.children[1]).contentWidth <- nil;
+		    }
+		
+		    if (buttons != nil && size(children) >= 5 && children[4] != nil) {
+			@Shape(children[4]).top <- nil;
+			@Shape(children[4]).left <- nil;
+			@Shape(children[4]).contentHeight <- nil;
+			@Shape(children[4]).contentWidth <- nil;
+		    }	    
+		}
+
+		//
+		// Break buttonShadow children subscription.
+		//
+		if (buttonShadow != nil) {
+		    foreach ind in [ 0 : size(buttonShadow.children)-1] {
+			if (buttonShadow.children[ind] != nil) {
+			    buttonShadow.children[ind].top <- nil;
+			    buttonShadow.children[ind].left <- nil;
+			    buttonShadow.children[ind].height <- nil;
+			    buttonShadow.children[ind].width <- nil;
+			    buttonShadow.children[ind].contentHeight <- nil;
+			    buttonShadow.children[ind].contentWidth <- nil;
+			}
+		    }
+		    buttons.children = {};
+
+		    //
+		    // Break buttonShadow subscriptions
+		    //
+		    buttonShadow.top <- nil;
+		    buttonShadow.left <- nil;
+		    buttonShadow.height <- nil;
+		    buttonShadow.width <- nil;
+		    buttonShadow.contentWidth <- nil;
+		    buttonShadow.contentWidth <- nil;
+		    buttonShadow.transparency <- nil;
+		    buttonShadow = nil;
+		}
+		//
+		// Break background subscriptions.
+		//
+		if (bgDDS != nil) {
+		    bgDDS.top <- nil;
+		    bgDDS.left <- nil;
+		    bgDDS.height <- nil;
+		    bgDDS.width <- nil;
+		    bgDDS.contentHeight <- nil;
+		    bgDDS.contentWidth <- nil;
+		    bgDDS = nil;
+		}
+
+
+		if (mainLayer != nil) {
+		    foreach ind in [ 0 : size(mainLayer.children)-1] {
+			if (mainLayer.children[ind] != nil) {
+			    mainLayer.children[ind].top <- nil;
+			    mainLayer.children[ind].left <- nil;
+			    mainLayer.children[ind].height <- nil;
+			    mainLayer.children[ind].width <- nil;
+			    mainLayer.children[ind].contentHeight <- nil;
+			    mainLayer.children[ind].contentWidth <- nil;
+			}
+		    }
+		    mainLayer.children = {};
+		    mainLayer.top <- nil;
+		    mainLayer.left <- nil;
+		    mainLayer.height <- nil;
+		    mainLayer.width <- nil;
+		    mainLayer.contentHeight <- nil;
+		    mainLayer.contentWidth <- nil;
+		    mainLayer = nil;
+		}
+
+		//
+		// Break pane subscriptions
+		//
+		if (pane != nil) {
+		    foreach ind in [ 0 : size(pane.children)-1] {
+			if (pane.children[ind] != nil) {
+			    pane.children[ind].top <- nil;
+			    pane.children[ind].left <- nil;
+			    pane.children[ind].height <- nil;
+			    pane.children[ind].width <- nil;
+			    pane.children[ind].contentHeight <- nil;
+			    pane.children[ind].contentWidth <- nil;
+			}
+		    }
+		    pane.children = {};
+
+		    pane.top <- nil;
+		    pane.left <- nil;
+		    pane.height <- nil;
+		    pane.width <- nil;
+		    pane.contentHeight <- nil;
+		    pane.contentWidth <- nil;
+		    pane = nil;
+		}
+		
+		if (buttons != nil) {
+		    foreach ind in [ 0 : size(buttons.children)-1] {
+			if (buttons.children[ind] != nil) {
+			    buttons.children[ind].top <- nil;
+			    buttons.children[ind].left <- nil;
+			    buttons.children[ind].height <- nil;
+			    buttons.children[ind].width <- nil;
+			    buttons.children[ind].contentHeight <- nil;
+			    buttons.children[ind].contentWidth <- nil;
+			    buttons.children[ind] = nil;
+			}
+		    }
+		    buttons.children = {};
+
+		    buttons.top <- nil;
+		    buttons.left <- nil;
+		    buttons.height <- nil;
+		    buttons.width <- nil;
+		    buttons.contentHeight <- nil;
+		    buttons.contentWidth <- nil;
+		    buttons = nil;
+		}
+		children = nil;
+		//		printf("DialogBase: Cleanup Refcount(%d)\n", refcount(this));
+		// Clean up all local references so that we get GCed
+	    }
+	    state = 0;
+	}
+
+	//
+	// Will be called after all subclass scripts have been called
+	// to setup their children. Move on to state 2.
+	// 
+	script state when show && state == 1 {
+	    *state = 2;
+	}
+
+	script show when show == false && state == 3 && transparency == 0.0 {
+	    //	    printf("STATE: fadeOut show[%d] state[%d] transp[%f sender(%s)]\n", show, state, transparency, sender(show));
+
+	    *state = 4;
+//	    if (transparency != 1.0) 
+	    transparency <- @Timer { cycleInterval = 0.5, autoDisconnect = true }.fraction;
+	}
+
+	script show when show && state == 0 && bgDDS != nil {
+//	    printf("STATE: setup [%d]\n", show);
+
+	    //
+	    // Do we have a new shadow layer?
+	    //
+	    if (children[0] != buttonShadow && buttonShadowDDSFile != "" && buttons != nil) {
+		int ind;
+		children[0] = buttonShadow;
+
+		//
+		// Replace each child in buttonShadow with a buttonShadowDDS based DDS
+		// file subscribing to the same position as the original child.
+		// This allows us to dynamically move the shadows with the buttons, 
+		// should it be necessary.
+		// 
+		foreach ind in [ 0 : size(buttonShadow.children)-1] {
+		    Layer old = buttonShadow.children[ind];
+		    
+		    buttonShadow.children[ind] = @DDS { ddsFile = buttonShadowDDSFile };
+ 		    buttonShadow.children[ind].top <- old.top + buttonShadowVOffset;
+ 		    buttonShadow.children[ind].left <- old.left + buttonShadowHOffset;
+		}
+
+
+		//
+		// Make buttonShadow layer mimic button layer
+		//
+		buttonShadow.top <- buttons.top;
+		buttonShadow.left <- buttons.left;
+		buttonShadow.height <- buttons.height;
+		buttonShadow.width <- buttons.width;
+		buttonShadow.transparency <- buttons.transparency;
+		
+	    }
+		
+	    //
+	    // Do we have a new background image?
+	    //
+	    if (@BGDDS(children[1]) != bgDDS) {
+	        children[1] = bgDDS;
+		bgDDS.top <- height / 2 - bgDDS.contentHeight /2;
+		*bgDDS.top = height / 2 - bgDDS.contentHeight /2;
+
+		bgDDS.left <- width / 2 - bgDDS.contentWidth /2;
+		*bgDDS.left = width / 2 - bgDDS.contentWidth /2;
+
+		mainLayer.top <- height / 2 - bgDDS.contentHeight /2 + bgDDS.topOffset;
+		*mainLayer.top = height / 2 - bgDDS.contentHeight /2 + bgDDS.topOffset;
+
+		mainLayer.left <- width / 2 - bgDDS.contentWidth /2 + bgDDS.leftOffset;
+		*mainLayer.left = width / 2 - bgDDS.contentWidth /2 + bgDDS.leftOffset;
+
+		*mainLayer.width = bgDDS.bgWidth;
+
+		*mainLayer.height = bgDDS.bgHeight;
+
+		mainLayer.children = { nil, nil }; // Will be pane and debug
+	    }
+	    
+	    
+	    //
+	    // Do we have a new pane 
+	    // to be installled in bgDDS
+	    //
+	    if (mainLayer.children[0] != pane) {
+	        mainLayer.children[0] = pane;
+
+		pane.height <- mainLayer.height;
+		*pane.height = mainLayer.height;
+		
+		pane.width <-  mainLayer.width;
+		*pane.width = mainLayer.width;
+
+		*pane.top = 0;
+		*pane.left = 0;
+		
+		// For debugging purposes
+		if (debug) {
+		    mainLayer.children[1] = @Shape { 
+			borderWidth = 2, 
+			borderColor = 0xFFFFFF, 
+			shape = rectangle, 
+			fill = false,
+			top <- pane.top,
+			left <- pane.left,
+			contentHeight <- pane.height,
+			contentWidth <- pane.width
+		    };
+		}
+	    }
+
+	    // Do we have new buttons layer?
+	    if (children[3] != buttons) {
+	        children[3] = buttons;
+
+		buttons.wantFocus = true;
+
+		// For debugging purposes
+ 		if (buttons != nil && debug) {
+		    children[4] = @Shape { 
+			borderWidth = 2, 
+			borderColor = 0xFFFFFF, 
+			shape = rectangle, 
+			fill = false,
+			top <- buttons.top,
+			left <- buttons.left,
+			contentHeight <- buttons.height,
+			contentWidth <- buttons.width
+		    };
+		}
+	    }
+
+	    if (show == true && state == 0) {
+		*state = 1;
+	    }
+	}
+
+	script state when state == 2 && transparency == 1.0 {
+//	    printf("STATE: fadein.\n");
+	    transparency <- (1.0 - @Timer { cycleInterval = 0.5, autoDisconnect = true }.fraction); // Fadein
+	}
+
+
+	script transparency when state == 2 && transparency == 0.0 {
+//	    printf("STATE: visible.\n");
+	
+	    //
+	    // Check if we should inhibit events from travelling up
+	    // the parental chain.
+	    // since this covers the entire screen, we will catch all
+	    // clickls.
+	    //
+	    if (modal) 
+	        exclusiveFocus = true;
+	    else
+	        exclusiveFocus = false;
+
+	    *state = 3;
+	}
+
+
+	script ~DialogBase {
+	    //	    printf("DialogBase: Destroying\n");
+	}
+
+	script DialogBase {
+	    children = { nil, nil, mainLayer, nil }; 
+
+	    wantFocus = true;
+	    transparency = 1.0;
+	    top = 0;
+	    left = 0;
+
+	    width <- .ScreenLib.xRes;
+	    height <- .ScreenLib.yRes;
+
+	    *width = .ScreenLib.xRes;
+	    *width <- .ScreenLib.xRes;
+	    *height = .ScreenLib.yRes;
+	    *height <- .ScreenLib.yRes;
+
+	    buttons.top = 0;
+	    buttons.left = 0;
+
+	    buttons.width <- width;
+	    buttons.height <- height;
+
+	    *buttons.width = width;
+	    *buttons.height = height;
+
+	    if (manager != nil) 
+		manager.addDialog = this; // Add dialog to self
+
+	    if (show) {
+		//	    printf("SHOW = true\n");
+		*show = true;
+	    }
+	}
+    }; 
+
+    // ScrollDialog.
+    // A dialog with capability to scroll sideways.
+    //
+    type ScrollDialog: DialogBase {
+	event bool nextActive;
+	event bool prevActive;
+
+	Button prevButton = Button { ddsFile = "dds/OS-Symbol-Back.dds", buttonEnabled <- prevActive };
+	Button nextButton = Button { ddsFile = "dds/OS-Symbol-Next.dds", buttonEnabled <- nextActive };
+	DDS prevButtonBackground = @DDS { ddsFile = "dds/OS-Button-Overlay.dds", top <- prevButton.top, left <- prevButton.left};
+	DDS nextButtonBackground = @DDS { ddsFile = "dds/OS-Button-Overlay.dds", top <- nextButton.top, left <- nextButton.left };
+        public ScrollPane scrollPane = ScrollPane { next <- nextButton.clicked, prev <- prevButton.clicked };
+	event bool prevClick <- prevButton.clicked;
+	event bool nextClick <- nextButton.clicked;
+	float buttonsOffset = 0.0;
+
+	//
+	// Redraw
+	//
+	script state when state == 1 {
+	    if (pane != mainLayer.children[0]) {
+		scrollPane.height <- bgDDS.bgHeight;
+		scrollPane.pageWidth <- bgDDS.bgWidth; // Set page width for scrolling pane.
+		*scrollPane.height = bgDDS.bgHeight;
+		*scrollPane.pageWidth = bgDDS.bgWidth; // Set page width for scrolling pane.
+	    }
+		
+	    // New scroll pane?
+	    if (scrollPane != pane.children[0]) {
+	        pane.children[0] = scrollPane;
+		scrollPane.next <- nextButton.clicked;
+		scrollPane.prev <- prevButton.clicked;
+	    }	    
+
+	    scrollPane.pageWidth = bgDDS.bgWidth; // Set page width for scrolling pane.
+	    *scrollPane.setup = true; // Trigger setup of scroll pane width etc.
+
+	    nextButton.transparency <- (scrollPane.pageCount == 1);
+	    prevButton.transparency <- (scrollPane.pageCount == 1);
+	    nextButtonBackground.transparency <- (scrollPane.pageCount == 1);
+	    prevButtonBackground.transparency <- (scrollPane.pageCount == 1);
+	    if (size(buttonShadow.children) > 0)
+	        buttonShadow.children[0].transparency <- (scrollPane.pageCount == 1);
+
+	    if (size(buttonShadow.children) > 1)
+	        buttonShadow.children[1].transparency <- (scrollPane.pageCount == 1);
+	}
+    
+	script state when state == 3 {
+//	    printf("Open for business\n");
+	    scrollPane.wantFocus = true; // We are open for business
+	}
+
+	script transparency when show == false && state == 4 && transparency == 1.0 && manager != nil {
+	    //	    printf("ScrollDialog: Cleanup\n");
+
+	    prevButton.buttonEnabled <- nil;
+	    nextButton.buttonEnabled <- nil;
+	    prevButtonBackground.top <- nil;
+	    prevButtonBackground.left <- nil;
+	    nextButtonBackground.top <- nil;
+	    nextButtonBackground.left <- nil;
+	    prevButton.top <- nil;
+	    prevButton.left <- nil;
+	    nextButton.top <- nil;
+	    nextButton.left <- nil;
+	    nextActive <- nil;
+	    prevActive <- nil;
+	    
+	    
+	    prevClick <- nil;
+	    nextClick <- nil;
+	    scrollPane.cleanup = true;
+
+	    scrollPane.next <- nil;
+	    scrollPane.prev <- nil;
+	    prevButton = nil;
+	    nextButton = nil;
+	    prevButtonBackground = nil;
+	    nextButtonBackground = nil;
+	    scrollPane.children = nil;
+	    scrollPane = nil;
+	}
+
+	script ~ScrollDialog {
+	    //	    printf("ScrollDialog: Destroyed\n");
+	}
+
+	script ScrollDialog {
+	    //	    printf("ScrollDialog: Created\n");
+	    //
+	    // We need to enable clipping on pane, and allow the scrollPane
+	    // child to be much wider so that we can scroll it.
+	    //
+	    pane = Layer { wantFocus = true, children = { scrollPane }, exclusiveFocus = true, clip = true }; 
+	    wantFocus = true;
+
+	    buttons.children = { prevButtonBackground, prevButton,  nextButtonBackground, nextButton };
+	    // Setup a shadow layer residing under pane.
+	    buttonShadow = @Layer { children = {  prevButton, nextButton } };
+
+	    prevButton.top <- buttons.height / 2 - prevButton.contentHeight / 2;
+	    prevButton.top = buttons.height / 2 - prevButton.contentHeight / 2;
+	    nextButton.top <- buttons.height / 2 - nextButton.contentHeight / 2;
+	    nextButton.top = buttons.height / 2 - nextButton.contentHeight / 2;
+
+	    prevButton.left <- buttons.width / 2 - bgDDS.bgWidth / 2 - prevButton.contentWidth - buttonsOffset;
+	    prevButton.left = buttons.width / 2 - bgDDS.bgWidth / 2 - prevButton.contentWidth - buttonsOffset;
+
+	    nextButton.left <- buttons.width / 2 + bgDDS.bgWidth / 2 + buttonsOffset;
+	    nextButton.left = buttons.width / 2 + bgDDS.bgWidth / 2 + buttonsOffset;
+
+	    nextActive <- scrollPane.nextActive;
+	    prevActive <- scrollPane.prevActive;
+	}
+    };
+
+    //
+    // DONE DIALOG
+    // Use Dialog.pane to install your own stuff.
+    //
+    type DoneDialog: ScrollDialog {
+        public bool @ScrollDialog.show = true;
+	Button done = Button { ddsFile = "dds/OS-Symbol-Ok.dds" };
+	DDS doneBackground = @DDS { ddsFile = "dds/OS-Button-Overlay.dds", top <- done.top, left <- done.left };
+	event bool done_clicked <- done.clicked;
+
+	script done_clicked when done_clicked && transparency != 1 {
+	    *show = false;
+	    *confirmed = true;
+	}
+
+	// Cleanup
+	script transparency when show == false && state == 4 && transparency == 1.0 && manager != nil {
+	    //	    printf("DoneDialog: Cleanup\n");
+	    doneBackground.top <- nil;
+	    doneBackground.left <- nil;
+
+	    done.top <- nil;
+	    done.left <- nil;
+	    done_clicked <- nil;
+
+	    done = nil;
+	    doneBackground = nil;
+	}
+
+	script DoneDialog {
+	    //	    printf("DoneDialog: Created\n");
+	    done.top <- bgDDS.top + bgDDS.topOffset + bgDDS.bgHeight - 25;
+	    done.left <-bgDDS.left + bgDDS.leftOffset + bgDDS.bgWidth - done.contentWidth - 30;
+	    buttons.children[size(buttons.children)] = doneBackground;
+	    buttons.children[size(buttons.children)] = done;
+	    buttonShadow.children[size(buttonShadow.children)] =  done ;
+
+	    //
+	    // Make the dialog cover the entire screeen so that we get all the inputs
+	    //
+	    modal = true;
+	}
+    }; 
+
+    //
+    // OK CANCEL DIALOG
+    // Use Dialog.pane to install your own stuff.
+    // Subscribe to confirmed, which will be set to true or false depending
+    // on if the ok or cancel button was clicked.
+    //
+    type OkCancelDialog: ScrollDialog {
+        public bool @ScrollDialog.show = true;
+	Button ok = Button {  ddsFile = "dds/OS-Symbol-Ok.dds" };
+	Button cancel = Button { 
+	    ddsFile = "dds/OS-Symbol-Cancel.dds",
+	    top <- ok.top,
+	    left <- ok.left + ok.contentWidth + 10};
+	DDS okBackground = @DDS { ddsFile = "dds/OS-Button-Overlay.dds", top <- ok.top, left <- ok.left };
+	DDS cancelBackground = @DDS { ddsFile = "dds/OS-Button-Overlay.dds", top <- cancel.top, left <- cancel.left };
+        public event bool cancelled = false; 
+
+	event bool ok_clicked <- ok.clicked;
+	event bool cancel_clicked <- cancel.clicked;
+	
+	script ok_clicked || cancel_clicked when (ok_clicked || cancel_clicked) && transparency != 1 {
+	    if (ok_clicked == true)
+	        *confirmed = ok_clicked;
+
+	    if (cancel_clicked == true) {
+		*cancelled = true;
+	    }
+
+	    *show = false;
+	}
+
+	script show when show == true {
+	    ok_clicked = false;
+	    cancel_clicked = false;
+	}
+
+	// Cleanup
+	script transparency when show == false && state == 4 && transparency == 1.0 && manager != nil {
+	    // printf("OkCancelDialog: Cleanup\n");
+
+	    ok_clicked <- nil;
+	    cancel_clicked <- nil;
+
+	    ok.top <- nil;
+	    ok.left <- nil;
+	    ok = nil;
+
+	    cancel.top <- nil;
+	    cancel.left <- nil;
+	    cancel = nil;
+
+	    okBackground.top <- nil;
+	    okBackground.left <- nil;
+	    okBackground = nil;
+
+	    cancelBackground.top <- nil;
+	    cancelBackground.left <- nil;
+	    cancelBackground = nil;
+
+	}
+
+	script ~OkCancelDialog {
+	    //	    printf("OkCancelDialog: Destroy\n");
+	}
+
+	script OkCancelDialog {
+	    buttons.children[size(buttons.children)] = okBackground;
+	    buttons.children[size(buttons.children)] = ok;
+	    buttons.children[size(buttons.children)] = cancelBackground;
+	    buttons.children[size(buttons.children)] = cancel;
+	    buttonShadow.children[size(buttonShadow.children)] =  ok ;
+	    buttonShadow.children[size(buttonShadow.children)] =  cancel ;
+	
+	    //
+	    // Make the dialog cover the entire screeen so that we get all the inputs
+	    //
+	    modal = true;
+	
+	    ok.top <- bgDDS.top + bgDDS.topOffset + bgDDS.bgHeight - 25;
+	    ok.left <-bgDDS.left + bgDDS.leftOffset + bgDDS.bgWidth - ok.contentWidth * 2 - 30;
+	}
+    }; 
+
+
+    type TextOkCancelDialog: OkCancelDialog {
+	Text textFormat = @Text {
+	    fontName = .GUI.systemFont,
+	    fontSize = 22,
+	    fontWeight = medium,
+	    fontColor = 0xCCCCCC,
+	    halign = center
+	};
+	string text[] = { "" };
+	int ind;
+
+	// Cleanup
+	script transparency when show == false && state == 4 && transparency == 1.0 && manager != nil {
+	    //	    printf("TextOkCancelDialog: Cleanup\n");
+	    textFormat = nil;
+	    text = nil;
+	}
+
+	script ~TextOkCancelDialog {
+	    //	    printf("TextOkCancelDialog: Destroy\n");
+	}
+
+
+	script state when state == 1 {
+	    foreach ind in [0:size(text) - 1]  {
+		@Text(scrollPane.children[ind]) = copy(textFormat);
+		@Text(scrollPane.children[ind]).fontName = textFormat.fontName;
+		@Text(scrollPane.children[ind]).fontSize = textFormat.fontSize;
+		@Text(scrollPane.children[ind]).fontWeight = textFormat.fontWeight;
+		@Text(scrollPane.children[ind]).fontColor = textFormat.fontColor;
+
+		@Text(scrollPane.children[ind]).text = text[ind];
+		@Text(scrollPane.children[ind]).valign = center;
+		@Text(scrollPane.children[ind]).top <- (ind - @float(size(text)) / 2.0)  * @Text(scrollPane.children[ind]).contentHeight;
+		@Text(scrollPane.children[ind]).height <- pane.height;
+		@Text(scrollPane.children[ind]).width <- pane.width;
+	    }
+	}
+   };
+
+    //
+    // TEXT DONE DIALOG
+    //
+    type TextDoneDialog: DoneDialog {
+        public bool @DialogBase.show = true;
+	Text textFormat = @Text {
+	    fontName = .GUI.systemFont,
+	    fontSize = 22,
+	    fontWeight = medium,
+	    fontColor = 0xCCCCCC,
+	    halign = center
+	};
+	string text[] = { "" };
+	int ind;
+	
+	// Cleanup
+	script transparency when show == false && state == 4 && transparency == 1.0 && manager != nil {
+	    //	    printf("TextDoneDialog: Cleanup\n");
+	    textFormat = nil;
+	    text = nil;
+	}
+
+	script state when state == 1 {
+	    foreach ind in [0:size(text) - 1]  {
+		@Text(scrollPane.children[ind]) = copy(textFormat);
+		@Text(scrollPane.children[ind]).fontName = textFormat.fontName;
+		@Text(scrollPane.children[ind]).fontSize = textFormat.fontSize;
+		@Text(scrollPane.children[ind]).fontWeight = textFormat.fontWeight;
+		@Text(scrollPane.children[ind]).fontColor = textFormat.fontColor;
+		@Text(scrollPane.children[ind]).halign = textFormat.halign;
+
+		@Text(scrollPane.children[ind]).text = text[ind];
+		@Text(scrollPane.children[ind]).valign = center;
+		@Text(scrollPane.children[ind]).top <- (ind - @float(size(text)) / 2.0)  * @Text(scrollPane.children[ind]).contentHeight;
+		@Text(scrollPane.children[ind]).height <- pane.height;
+		@Text(scrollPane.children[ind]).width <- pane.width;
+	    }
+	}
+    };
+
+    //
+    // MENU DIALOG
+    //
+    type MenuDialog : ScrollDialog {
+        type MenuDialogOption : Text {
+	    SingleChoice options = nil;
+	    int index = -1;
+
+	    script message when
+		(message.name == buttonDown) &&	(message.value == 1) &&
+		(message.x != -1.0) &&
+		(transparency != 1.0) &&
+		(size(options.entries) > index) &&
+		(options.entries[index].value != -1) {
+		// Motion events ?
+		//		printf("GUI:MenuDialog:MenuDialogOption:(1) message=%p\n",message);
+		background = true;
+		backgroundColor = 0x000000;
+	    }
+
+	    // Button1 released (or lost focus) while and option selected
+	    script message when 
+		(message.name == buttonUp) && (message.value == 1) &&
+		(transparency != 1.0) &&
+		(size(options.entries) > index) &&
+		(options.entries[index].value != -1) {
+		//		printf("GUI:MenuDialog:MenuDialogOption:(2) message=%p\n",message);
+		background = false;
+		if (message.x != -1.0) // has not lost focus
+		    options.selected = options.entries[index].value;
+	    }
+
+	    script MenuDialogOption {
+		fontName = systemFont;
+		fontSize = menuFontSize;
+		fontWeight = medium;
+		fontColor = 0xCCCCCC;
+		if (options.entries[index].value == -1) {
+		    fontColor = 0xA0A0A0;
+		    transparency = 0.3;
+		}
+
+		valign = center;
+//	printf("New entry for index[%d] options[%p]\n", index, options);
+//	printf("OPTIONS[%d] = %p text[%p]\n", index, options.entries[index], text);
+		wantFocus = true;
+		messageMask = @Message.message_mask_button;
+//	    exclusiveFocus = true;
+		if (options != nil && index != -1) 
+		    text = options.entries[index].text;
+		else
+		    text = "nil"; 
+	    }
+	};
+	
+	SingleChoice options = SingleChoice { };  // Populated by children
+	// public event bool show;
+
+        public float timeOut = 10.0;  // In seconds .
+        event bool doTimeOut = false;
+//	int currentPage = 0;
+//	int pageCount = 1;
+
+        public DDS @DialogBase.bgDDS = dlg_bg_357x410;
+
+	
+	//
+	// Redraw
+	//
+	script state when show && state == 1 {
+	    int i;
+	    int current_top = 0;
+	    int current_left = 0;
+	    int cur_child = 0;
+	    // Layer containing entries.
+//	    printf("MenuDialog: show: Called()\n");
+
+	    //
+	    // Walk through all options (populated by all children who 
+	    // received buttonDown message)
+	    // and create a text pane.
+	    //
+	    foreach i in [ 0 : size(options.entries) - 1]  {
+		//
+		// Each child needs to be a layer, containing a single Text element
+		// We need to do this to get a band of inverse text over the entire
+		// width of the menu pane.
+		//
+//    		 printf("Adding new entry at index[%d] top[%d] left[%d] [%s/%d]\n",
+//    			i, current_top, current_left,
+//   			options.entries[i].text,
+//   			options.entries[i].value);
+
+		// Check if we are to add a separator
+		if (options.entries[i].value == -2) {
+		    scrollPane.children[cur_child] = @Shape { 
+			contentWidth = pane.width - 1,
+			contentHeight = 1,
+			top = current_top,
+			left = current_left,
+			shape = rectangle,
+			transparency = 0.5,
+			fill = false,			
+			borderWidth = 2,
+			borderColor = 0xCCCCCCCC
+		    };
+		    current_top = current_top + 7;
+		} else {
+		    scrollPane.children[cur_child] = @MenuDialogOption { 
+			options = options,
+			index = i,
+			top = current_top,
+			left = current_left
+		    };
+
+		    scrollPane.children[cur_child].height = scrollPane.children[cur_child].contentHeight + 15;
+		    scrollPane.children[cur_child].width = pane.width;
+		    // Add offset.
+		    current_top = current_top + scrollPane.children[cur_child].contentHeight + 15;
+		};
+
+//  		 printf("current_top[%d] paneSize[%.0fx%.0f] scrollPane[%.0fx%.0f]\n", 
+//  			current_top, pane.height, pane.width, scrollPane.height, scrollPane.width);
+		if (current_top >= pane.height - scrollPane.children[cur_child].contentHeight) {
+//		    printf("New page\n");
+		    current_top = 0;
+		    current_left = current_left + pane.width;
+		}
+		cur_child++;
+	    }
+//	     printf("Setting up timer\n");
+	    *scrollPane.setup = true; // Trigger setup of scroll pane width etc.
+	    doTimeOut <- @Timer { cycleInterval = timeOut, autoDisconnect = true }.active;
+
+	    *state = 2; // Force to display
+	}
+    
+	script message when 
+	    (message.name==buttonDown) && 
+	    (message.value==1) &&
+	    (state == 3) {
+//	    printf("MenuDialog: message=%p\n", message);
+// 	    printf("pane.top[%f] pane.left[%f] pane.height[%f] pane.width[%f]\n",
+// 		   pane.top,
+// 		   pane.left,
+// 		   pane.height,
+// 		   pane.width);
+
+// 	    printf("self.top[%f] self.left[%f] self.height[%f] self.width[%f]\n",
+// 		   top,
+// 		   left,
+// 		   height,
+// 		   width);
+
+// 	    printf("Tap outside pane. Dismiss.\n");
+	    doTimeOut <- nil;
+	    *show = false;
+	}
+
+
+	script doTimeOut when !doTimeOut && state == 3 {
+//	    printf("MenuDialog: Timeout [%d]\n", doTimeOut);
+	    *show = false;
+	}
+	 
+	script state when state == 3 {
+	    int i;
+//	    printf("Open for business\n");
+	    scrollPane.wantFocus = true; // We are open for business
+	}
+
+	//
+	// Cleanup
+	//
+	script transparency when show == false && state == 4 && transparency == 1.0 && manager != nil {
+	    //	    printf("MenuDialog: Cleanup\n");
+	    //	    buttons.transparency <- nil;
+	    //	    scrollPane.pageWidth <- nil;
+	    options.entries = { };
+	    //	    scrollPane.children = {};
+	    //scrollPane = nil;
+	    options = nil;
+	    doTimeOut <- nil;
+	}
+
+	//
+	// Reset show timer
+	//
+	script show when show == 0 && state == 3 {
+//	    printf("MenuDialog:Hiding\n");
+	    scrollPane.wantFocus = false; // No more selection.
+	    doTimeOut <- nil;
+	    options.entries = { };
+	    scrollPane.children = {};
+	}
+
+	script state when state == 0 && !show {
+//	    printf("MenuDialog: Removing entries.\n");
+	    if (options != nil)
+		options.entries = { };
+	}
+
+	//
+	// Reset timer when buttons are clicke
+	//
+	script  nextClick || prevClick{
+	    doTimeOut <- @Timer { cycleInterval = timeOut, autoDisconnect = true }.active;
+	}
+
+	script ~MenuDialog {
+	    //	    printf("MenuDialog: Destroy\n");
+	}
+
+	script MenuDialog {
+	    //	    printf("MenuDialog: Create\n");
+	    // scrollPane.width set dynamically by its setup script.
+	    scrollPane.pageWidth <- pane.width; // Set page width for scrolling pane.
+	    transparency = 1;  // Hide menu pane
+	    buttons.transparency <- (scrollPane.pageCount == 1);
+
+	    messageMask = @Message.message_mask_button;
+	}
+//	modal = true;
+//	exclusiveFocus = true;
+    };
+
+    MenuDialog popupMenu = @MenuDialog { manager = nil }; // Lives outside dialog manager
+
+    //
+    // A layer with a menu integration interface.
+    // Subclasses of this layer allows for
+    // the integration of 
+    // 
+    type MenuEnabledLayer : Layer {
+	// menu is set by MenuEnabledLayer constructor
+	// menu.options is to be populated by MenuEnabledLayer subclasses 
+	//
+	// The creator of the subclass will set menu to a single
+	// common SingleChoice instance used by all MenuEnabledLayer
+	// instances.
+	//
+        public MenuDialog menu = popupMenu;  // The menu we will populate
+	
+	// 
+	// selectedOption is set to the GUI:SingleChoice:value of the selected menu item.
+	//
+        public event signed selectedOption;
+
+        public event bool installOptions = false;
+
+	event bool setOptions; // Used internally to set options.
+
+        public bool focused = false;
+
+	script message when 
+	    (message.name==buttonUp) && 
+	    (message.value==1) {
+	    //	    printf("MenuEnabledLayer:(1) message=%p\n", message);
+	    // We may loose focus here (use other event for this!!!)
+	    focused = (message.x != -1.0);
+	}
+	
+	script installOptions when installOptions && focused && (menu != nil) {
+	    //	    printf("Will show menu [%p]\n", menu);
+	    selectedOption <- menu.options.selected;
+	    menu.show = true;
+	}
+
+	script message when 
+	    (message.name==buttonDown) && 
+	    (message.value==1) && 
+	    (menu != nil)  {
+//	    printf("MenuEnabledLayer:(2) message=%p\n", message);
+	    focused = true;  // We must have foucs at this point
+	    if (menu.state == 0) {
+		*installOptions = true;
+	    }
+	    
+	}
+
+	script selectedOption {
+	    selectedOption <- nil;
+	    menu.show = false;
+	}
+
+	script MenuEnabledLayer {
+	    // Enable message button processing
+	    messageMask = @Message.message_mask_button;
+	}
+    };
+
+    //
+    // Cursor
+    // An optional mouse pointer to be used when the input device is a mouse, not a touch screen
+    //
+    type Cursor: Image {                                                
+        event unsigned x <- .ScreenLib.inputStrategy.x;
+        event unsigned y <- .ScreenLib.inputStrategy.y;
+        event bool timeout;
+	bool first_call = true;
+	bool forceCursorOn = false;
+
+	//
+        // Fade out pointer.                                                                                                 
+	//
+        script timeout when !timeout {
+            transparency <-  @ScalarInterpolator {
+                key = { 0.0, 1.0 }, keyValue = { transparency, 1.0},
+                value = transparency,
+		fraction <- @Timer { cycleInterval = 0.2, autoDisconnect = true }.fraction
+            }.value;
+        }                                                                                                                    
+
+
+	// Fade in pointer
+//        script x || y when .ScreenLib.touchscreen != nil && .ScreenLib.touchscreen.absoluteDevice == false {
+
+        script x || y when forceCursorOn || (.ScreenLib.touchscreen != nil && .ScreenLib.touchscreen.absoluteDevice == false) {
+	    float x_offset = (.ScreenLib.realXRes - .ScreenLib.xRes) / 2;
+	    float y_offset = (.ScreenLib.realYRes - .ScreenLib.yRes) / 2;
+
+	    // Ignore first call
+	    if (first_call) {
+		first_call = false;
+		return;
+	    }
+
+            if (transparency == 1.0) {                                           
+                transparency <-  @ScalarInterpolator {                           
+                    key = { 0.0, 1.0 }, keyValue = { 1.0, 0.0},                  
+                    value = 1.0,                                                 
+			fraction <- @Timer { cycleInterval = 0.2, autoDisconnect = true }.fraction     
+                 }.value;                                                        
+            }                                                                    
+            timeout <- @Timer { cycleInterval = 4.0, active = true }.active;
+
+ 	    if (y < y_offset)
+ 		y = y_offset;
+
+ 	    if (x < x_offset)
+ 		x = x_offset;
+
+
+ 	    if (y > .ScreenLib.yRes + y_offset)
+ 		y = y_offset + .ScreenLib.yRes;
+
+ 	    if (x > .ScreenLib.xRes + x_offset)
+ 		x = x_offset + .ScreenLib.xRes;
+
+
+            top = y;      
+	    left = x;
+   	    if (left + contentWidth > .ScreenLib.xRes + x_offset)
+   		width = .ScreenLib.xRes + x_offset - left;
+   	    else 
+   		width = contentWidth;
+
+   	    if (top + contentHeight > .ScreenLib.yRes + y_offset)
+  		height = .ScreenLib.yRes + y_offset - top;
+   	    else 
+   		height = contentHeight;
+        }                                
+	script Cursor {
+	    transparency = 1.0;              
+	    clip = true;
+	}
+    };                                   
+
+}

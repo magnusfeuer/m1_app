@@ -1,0 +1,141 @@
+// -*- c++ -*-
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+library EngineLib {
+    
+    //
+    // MUT3Engine
+    // This Engine subclass creates a MUT3 (c++) object and ties
+    // its output to the Engine variables. Normalization is done as well.
+    //
+    type MUT3Engine: MUT3Device {
+	event int loc_state;
+	script loc_state when loc_state == 3 {
+	    // Trigger a setup of dependent channels (kph -> mph etc.
+	    .EngineBaseLib.engine.setupDependentChannels = true;
+	    printf("MUT3Engine::loc_state: loc_state == 3 (running)\n");
+	}
+
+
+	script MUT3Engine {
+	    .EngineBaseLib.engine.state <- state;
+	    // Tie device loc_state to self.
+	    loc_state <- .EngineBaseLib.engine.state;
+	
+	    //
+	    // Setup subscritions into standardized channels map.
+	    //
+	    .EngineBaseLib.engine.channels[.EC.rpm].supported <- rpmSupported;
+	    .EngineBaseLib.engine.channels[.EC.map_mbar].supported <- mapSupported; 
+	    .EngineBaseLib.engine.channels[.EC.kph].supported <- spdSupported; 
+	    .EngineBaseLib.engine.channels[.EC.lam_1_1_v].supported <- lam_1Supported;
+//	    .EngineBaseLib.engine.channels[.EC.lam_1_2_v].supported <- lam_2Supported; // Narrowband. Skip this.
+	    .EngineBaseLib.engine.channels[.EC.ect_c].supported <- ectSupported;
+	    .EngineBaseLib.engine.channels[.EC.iat_c].supported <- actSupported;
+	    .EngineBaseLib.engine.channels[.EC.vbat].supported <- vbatSupported;
+	    .EngineBaseLib.engine.channels[.EC.ign_adv].supported <- timingSupported;
+	    .EngineBaseLib.engine.channels[.EC.maf_g].supported <- mafSupported; 
+	    .EngineBaseLib.engine.channels[.EC.atps].supported <- tpsSupported;
+	    .EngineBaseLib.engine.channels[.EC.bap_mbar].supported <- bapSupported;    
+	    .EngineBaseLib.engine.channels[.EC.latency].supported <- false;
+	    .EngineBaseLib.engine.channels[.EC.fpw].supported <- fpwSupported;
+
+
+	    .EngineBaseLib.engine.channels[.EC.rpm].min <- rpmMin;
+	    .EngineBaseLib.engine.channels[.EC.map_mbar].min <- mapMin; 
+	    .EngineBaseLib.engine.channels[.EC.kph].min <- spdMin; 
+	    .EngineBaseLib.engine.channels[.EC.lam_1_1_v].min <- lam_1Min;
+	    //	    .EngineBaseLib.engine.channels[.EC.lam_1_2_v].min <- lam_2Min;
+	    .EngineBaseLib.engine.channels[.EC.ect_c].min <- ectMin;
+	    .EngineBaseLib.engine.channels[.EC.iat_c].min <- actMin;
+	    .EngineBaseLib.engine.channels[.EC.vbat].min <- vbat;
+	    .EngineBaseLib.engine.channels[.EC.ign_adv].min <- timingMin;
+	    .EngineBaseLib.engine.channels[.EC.maf_g].min <- mafMin; 
+	    .EngineBaseLib.engine.channels[.EC.atps].min <- tpsMin;
+	    .EngineBaseLib.engine.channels[.EC.bap_mbar].min <- bapMin;    
+	    .EngineBaseLib.engine.channels[.EC.latency].min <- 0.0;
+	    .EngineBaseLib.engine.channels[.EC.fpw].min <- fpwMin;
+
+
+     
+	    .EngineBaseLib.engine.channels[.EC.rpm].max <- rpmMax;
+	    .EngineBaseLib.engine.channels[.EC.map_mbar].max <- mapMax; 
+	    .EngineBaseLib.engine.channels[.EC.kph].max <- spdMax; 
+	    .EngineBaseLib.engine.channels[.EC.lam_1_1_v].max <- lam_1Max;
+	    //	    .EngineBaseLib.engine.channels[.EC.lam_1_2_v].max <- lam_2Max;
+	    .EngineBaseLib.engine.channels[.EC.ect_c].max <- ectMax;
+	    .EngineBaseLib.engine.channels[.EC.iat_c].max <- actMax;
+	    .EngineBaseLib.engine.channels[.EC.vbat].max <- vbat;
+	    .EngineBaseLib.engine.channels[.EC.ign_adv].max <- timingMax;
+	    .EngineBaseLib.engine.channels[.EC.maf_g].max <- mafMax; 
+	    .EngineBaseLib.engine.channels[.EC.atps].max <- tpsMax;
+	    .EngineBaseLib.engine.channels[.EC.bap_mbar].max <- bapMax;    
+	    .EngineBaseLib.engine.channels[.EC.latency].max <- 10.0; // Let's pray we never see 10 sec latency.
+	    .EngineBaseLib.engine.channels[.EC.fpw].max <- fpwMax; // Let's pray we never see 10 sec latency.
+
+
+	    .EngineBaseLib.engine.channels[.EC.rpm].value <- rpm;
+	    .EngineBaseLib.engine.channels[.EC.map_mbar].value <- map; 
+	    .EngineBaseLib.engine.channels[.EC.kph].value <- spd; 
+	    .EngineBaseLib.engine.channels[.EC.lam_1_1_v].value <- lam_1;
+	    //	    .EngineBaseLib.engine.channels[.EC.lam_1_2_v].value <- lam_2;
+	    .EngineBaseLib.engine.channels[.EC.ect_c].value <- ect;
+	    .EngineBaseLib.engine.channels[.EC.iat_c].value <- act;
+	    .EngineBaseLib.engine.channels[.EC.vbat].value <- vbat;
+	    .EngineBaseLib.engine.channels[.EC.ign_adv].value <- timing;
+	    .EngineBaseLib.engine.channels[.EC.maf_g].value <- maf; 
+	    .EngineBaseLib.engine.channels[.EC.atps].value <- tps;
+	    .EngineBaseLib.engine.channels[.EC.bap_mbar].value <- bap;    
+	    .EngineBaseLib.engine.channels[.EC.fpw].value <- fpw; // Let's pray we never see 10 sec latency.
+
+	    rpmUsage <- (.EngineBaseLib.engine.channels[.EC.rpm].usage + 
+			 .EngineBaseLib.engine.channels[.EC.gear].usage + 
+			 .EngineBaseLib.engine.channels[.EC.torque_nm].usage + 
+			 .EngineBaseLib.engine.channels[.EC.torque_lbft].usage + 
+			 .EngineBaseLib.engine.channels[.EC.hp].usage); 
+
+	    mapUsage <- (.EngineBaseLib.engine.channels[.EC.map_mbar].usage + 
+			 .EngineBaseLib.engine.channels[.EC.map_psi].usage + 
+			 .EngineBaseLib.engine.channels[.EC.map_mbarcm].usage + 
+			 .EngineBaseLib.engine.channels[.EC.map_psiin].usage);
+
+	    spdUsage <- (.EngineBaseLib.engine.channels[.EC.kph].usage + 
+			 .EngineBaseLib.engine.channels[.EC.mph].usage + 
+			 .EngineBaseLib.engine.channels[.EC.gear].usage + 
+			 .EngineBaseLib.engine.channels[.EC.mpg].usage + 
+			 .EngineBaseLib.engine.channels[.EC.gforce].usage);
+	    lam_1Usage <-	.EngineBaseLib.engine.channels[.EC.lam_1_1_v].usage; 
+	    //	    lam_2Usage <-	.EngineBaseLib.engine.channels[.EC.lam_1_2_v].usage;
+	    ectUsage <-	(.EngineBaseLib.engine.channels[.EC.ect_c].usage + .EngineBaseLib.engine.channels[.EC.ect_f].usage);
+	    actUsage <- 	(.EngineBaseLib.engine.channels[.EC.iat_c].usage + .EngineBaseLib.engine.channels[.EC.iat_f].usage);
+	    vbatUsage <-         .EngineBaseLib.engine.channels[.EC.vbat].usage; 
+	    timingUsage <- 	.EngineBaseLib.engine.channels[.EC.ign_adv].usage;
+	    mafUsage <-  	(.EngineBaseLib.engine.channels[.EC.maf_g].usage + 
+				 .EngineBaseLib.engine.channels[.EC.maf_o].usage + 
+				 .EngineBaseLib.engine.channels[.EC.mpg].usage +
+				 .EngineBaseLib.engine.channels[.EC.hp].usage + 
+				 .EngineBaseLib.engine.channels[.EC.torque_nm].usage + 
+				 .EngineBaseLib.engine.channels[.EC.torque_lbft].usage); 
+	    tpsUsage <- 	(.EngineBaseLib.engine.channels[.EC.atps].usage + .EngineBaseLib.engine.channels[.EC.rtps].usage + .EngineBaseLib.engine.channels[.EC.torque_nm].usage + .EngineBaseLib.engine.channels[.EC.torque_lbft].usage + .EngineBaseLib.engine.channels[.EC.hp].usage);
+	    bapUsage <-     	(.EngineBaseLib.engine.channels[.EC.bap_mbar].usage + .EngineBaseLib.engine.channels[.EC.bap_psi].usage);
+	    fpwUsage <- 	.EngineBaseLib.engine.channels[.EC.fpw].usage;
+	}
+    };
+	
+    event bool create_engine <- @Timeout { duration = 4.0 }.timeout;
+    MUT3Engine engine = @MUT3Engine {};
+
+
+    // Persistent storage of the selected protocol.
+
+    // Setting port will trigger the MUT3Device reading of PIDs
+    // from the ECU, which will trigger xxxSupported, which
+    // will trigger the scripts above.
+    if (getenv("M1_CONSULT_DEVICE") == "")
+	engine.port = "/dev/ttyUSB0";
+    else
+	engine.port = getenv("M1_MUT_DEVICE");
+}

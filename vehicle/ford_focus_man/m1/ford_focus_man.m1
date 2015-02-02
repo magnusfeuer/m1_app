@@ -1,0 +1,38 @@
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+//
+// Add a Nissan 350Z Manual configuration.
+//
+int ind = size(.EngineBaseLib.engine.vehicleProfiles);
+
+type FordFocusMan: :EngineBaseLib:VehicleProfile {
+    make = "Ford";
+    model = "Focus";
+    imageFile = "dds/ford_focus_man.png";
+    startYear = 2001;
+    stopYear = 2007; // Unknown.
+    gearType = 1; // manual
+    curbWeight = 1240; // Curb weight + driver.
+    length = 427; // In cm.
+    width = 170;
+    height = 143;
+    wheelBase = 0;
+    displacement =  200; // cubic centimetres. 
+    cylinders = 4;
+    cylinderConfig = 1; // Inline
+    obdIIProtocol = 0; // ISO9141 preset does not yet work.
+    gearCount = 5;
+    chanProf[.EC.rpm].max = 7000;    
+    chanProf[.EC.rpm].maxWarn = 6500;    
+    chanProf[.EC.rpm].maxCritical = 6750;   
+};
+
+.EngineBaseLib.engine.vehicleProfiles[ind] = @FordFocusMan {};
+
+if (.EngineBaseLib.engine.currentVehicleProfile == -1)
+    .EngineBaseLib.engine.currentVehicleProfile = 0;
+

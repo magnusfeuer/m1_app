@@ -1,0 +1,45 @@
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+//
+// Add a Acura TSX Man
+//
+int ind = size(.EngineBaseLib.engine.vehicleProfiles);
+
+type AcuraTSXManProfile: :EngineBaseLib:VehicleProfile {
+    make = "Acura";
+    model = "TSX";
+    startYear = 2008;
+    stopYear = 0; // Onward
+    gearType = 1; // Tiptronic.
+    curbWeight = 1646; // Curb weight + driver. kg
+    length = 473; // Cm
+    width = 184;
+    height = 144;
+    wheelBase = 0;
+    displacement = 240; // cubic centimetres. 
+    imageFile = "dds/acura_tsx.png";
+    obdIIProtocol = 0;
+
+    cylinders = 4;
+    cylinderConfig = 1; // Inline
+    gearCount = 6;
+    chanProf[.EC.rpm].max = 8000; 
+    chanProf[.EC.rpm].maxWarn = 6950;    
+    chanProf[.EC.rpm].maxCritical = 7100;   
+
+    tireWidth = 225;
+    tireSidewallRatio = 50;
+    tireRimDiameter = 17;
+
+};
+
+.EngineBaseLib.engine.vehicleProfiles[ind] = @AcuraTSXManProfile {};
+
+
+// Init current vehicle profile if necessary.
+if (.EngineBaseLib.engine.currentVehicleProfile == -1)
+    .EngineBaseLib.engine.currentVehicleProfile = 0;

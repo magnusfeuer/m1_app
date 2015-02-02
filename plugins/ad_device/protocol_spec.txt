@@ -1,0 +1,83 @@
+CAN commands
+
+sxxyy
+S0
+S1
+S2
+S3
+S4
+S5
+S6
+S7
+S8
+O
+C
+t
+T
+F
+M
+m
+V
+N
+Z0
+Z1
+
+A/D Converter Commands
+----------------------
+
+An[<tttt>]<CR>
+
+	Start sample A analog input channel n [0-F]. tttt is the sample time
+	in milliseconds as a hex number.
+	Max number is EA60 = 60000, meaning that it's
+	not possible to have sample time longer than 1 minute.
+	If tttt is not given a sample time of 1000 milliseconds (03E8) is
+	 assumed.
+
+	The sample will be reported as:
+
+	    AnvvvvTTTT<CR>
+
+	 Where the n is the input channel, vvvv is hex 16 bit sample number
+	 In the case of 10 bit samples the value is scaled to the top 16 bits.
+	 To convert back to 10 bits then vvvv >> 6 is needed but to scale
+	 to float [0.0 - 1.0] then (vvvv/16#ffff) will be fine.
+	 TTTT is the number of milliseconds since last read.
+	
+an<CR>
+
+	Stop async sampling of channel n. Note that there may be
+	command(s) in the output buffer that may arrive after the 
+	stop command.
+
+Rn
+
+	Syncrounous read analouge value from channel nn.
+	Returns RnvvvvTTTT<CR> or BELL (7) for error
+
+Dn[<tttt>]<CR>
+
+	Start sample A digital input bit counter n [0-F].
+	tttt is the sample time	in milliseconds as a hex number.
+	Max number is EA60 = 60000, meaning that it's
+	not possible to have sample time longer than 1 minute.
+	If tttt is not given a sample time of 1000 milliseconds (03E8) is
+	 assumed.
+
+	The sample will be reported as:
+
+	    DnccccTTTT<CR>
+
+	 Where the n is the digital channel, cccc is hex 16 bit counter number.
+	 Since last read. A read will reset the counter.
+	 TTTT is the the number of milliseconds since the last read.
+
+dn<CR>
+
+	Stop reading digital input bit counter n.
+
+En
+	Read the digital input bit counter n.
+	Reply as:
+
+	    Encccctttt<CR>

@@ -1,0 +1,31 @@
+Command [0x00] supported RPM
+Command [0x01] supported RPM
+Command [0x04] supported MAF
+Command [0x05] supported MAF
+Command [0x08] supported Coolant
+Command [0x09] supported O2 Sensor
+Command [0x0B] supported Speed
+Command [0x0C] supported VBAT
+Command [0x0D] supported TPS
+Command [0x0E] supported ???
+Command [0x13] supported Digital Bit Register
+Command [0x14] supported Injector duty cycle
+Command [0x15] supported Injector duty cycle
+Command [0x17] supported Idle Air 
+Command [0x1A] supported Air Fuel % (probably short term modifier)
+Command [0x1C] supported Air Fuel % (probably long term modifier)
+Command [0x1E] supported Digital control register
+Command [0x1F] supported Digital control register
+Command [0x21] supported M/R F/C MNT???
+Command [0x26] supported ???
+Command [0x29] supported Turbo boost sensor.
+Command [0x3B] supported ?? 
+Command [0x3D] supported ??
+Command [0x3F] supported ??
+Command [0x40] supported ??
+Command [0x43] supported ??
+Command [0x44] supported ??
+Command [0x45] supported ??
+Command [0x46] supported ??
+Command [0x62] supported ??
+Command [0x63] supported ??

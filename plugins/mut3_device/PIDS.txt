@@ -1,0 +1,74 @@
+VO4 Manual Page 1-25 Service Data Output
+11 O2 sensor mV
+12 Air flow sensor output Hz
+13 Intake temperature sensor output °C
+14 Throttle position sensor output mV
+16 Battery voltage V
+18 Cranking signal (ignition switch ST terminal) ON-OFF
+21 Coolant temperature sensor output °C
+22 Crank angle sensor output RPM
+25 Atmospheric pressure sensor output kPa
+26 Idle switch ON-OFF
+27 Power steering fluid pressure switch ON-OFF
+28 Air conditioner switch ON-OFF
+41 Injector energization time ms
+44 Ignition advance angle °BTDC, °ATDC
+45 ISC stepper motor position STEP
+49 Air conditioner relay ON-OFF
+
+
+EVO4 Manual Page 1-26 Actuator Tests
+Actuator test items are shown in the following table.
+Item No. Actuator test item
+01 No. 1 injector: OFF
+02 No. 2 injector: OFF
+03 No. 3 injector: OFF
+04 No. 4 injector: OFF
+07 Fuel pump: ON
+09 Fuel pressure control valve: ON
+12 Wastegate solenoid valve: ON
+13 Fuel pump relay No. 2: ON (current supplied via resistor)
+17* Ignition timing: 5°BTDC
+20 Radiator fan (high), air conditioner condenser fan (high): high-speed operation
+21 Radiator fan (low), air conditioner condenser fan (low): low-speed operation
+30* ISC servo: locked in reference step during SAS adjustment
+*: Continues for 27 minutes unless cancelled by depression of clear key.
+
+FROM evo8 manual:
+ECT SENSOR 21 Engine coolant temperature sensor °C or °F
+ENGINE LOAD 87 Calculated load value %
+ENGINE SPEED 22 Crankshaft position sensor r/min
+IAT SENSOR 13 Intake air temperature sensor °C or °F
+IG. TIMING ADV 44 Ignition coils and ignition power, transistor, deg
+LONG TRIM B1 81 Long-term fuel trim %
+SHORT TRIM B1 82 Short-term fuel trim %
+SYS. STATUS B1 88 Fuel system status • Open loop• Closed loop• Open loop-drive condition• Open loop-DTC set• Closed loop-O2 (rear) failed
+TP SENSOR 8A Throttle position sensor %
+VAF SENSOR 12 Volume airflow sensor (mass airflow rate) gm/s
+VSS 24 Vehicle speed sensor km/h or mph
+
+
+13A-11 Data List Function MODE 6 Data logging:
+Limit Value (minimum) *1 or (maximum) *2 about
+the main items of emission control system which
+ECM monitors can be confirmed. The value at the
+last monitoring is output by ECM as a test result.
+09 Heated oxygen sensor (front) monitor (Rich/Lean Switching) Count Test Result and Limit Value (min.) × 1 count
+0B Heated oxygen sensor (rear) monitor (Voltage Change)The engine control unit checks the output voltage of the heated oxygen sensor (rear) in order to monitor whether the heated oxygen sensor (rear) output is stuck. HO2S B1 SENSOR2 Change in Volt Test Result and Limit Value (min.)× 19.5 mV
+
+
+Diagnostic Trouble Codes:
+11 Heated oxygen sensor.
+12 Air Flow Sensor.
+13 Intake Air Temperature Sensor.
+14 Throttle Position Sensor.
+21 Engine Coolant Temperature Sensor.
+22 Crankshaft Position Sensor.
+23 Camshaft Position Sensor.
+24 Vehicle Speed Sensor.
+25 Barometric Pressure Sensor.
+31 Knock sensor.
+41 Injector.
+42 Fuel Pump.
+43 EGR (California only).
+44 Ignition coil/Power transistor unit. 

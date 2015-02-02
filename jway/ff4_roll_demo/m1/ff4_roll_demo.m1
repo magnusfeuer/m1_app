@@ -1,0 +1,220 @@
+//
+// Just setup the source for the PiSYS3 stream
+
+application FF4 {
+    event unsigned keyVal <- .ScreenLib.touchscreen.keyValue; // Keyboard input
+    event unsigned level;
+    unsigned oldVal = 0;
+    event float transp;
+    event float countdown = 0.0;
+    event float transition = 0.0;
+    enum {
+	not_showing,
+	green,
+	yellow,
+	red
+    } state = not_showing;
+
+
+    Image text = Image{ imageFile = "dds/FaF-640x480-ScrambleBoost-Text-RED-1.png", top = 47, left = 163 }; 
+
+    Image prog_green = Image{ 
+	imageFile = "dds/FaF-640x480-ScrambleBoost-Pbar-GREEN-1.png", 
+	top = 107, 
+	left = 130, 
+	transparency = 1.0 
+    }; 
+
+    Image prog_yellow = Image{ 
+	imageFile = "dds/FaF-640x480-ScrambleBoost-Pbar-YELLOW-1.png", 
+	top = 107, 
+	left = 130, 
+	transparency = 1.0 
+    }; 
+
+    Image prog_red = Image{ 
+	imageFile = "dds/FaF-640x480-ScrambleBoost-Pbar-RED-1.png", 
+	top = 107, 
+	left = 130, 
+	transparency = 1.0 
+    }; 
+
+    Image puck_green = Image{ 
+	imageFile = "dds/FaF-640x480-ScrambleBoost-Puck-GREEN-1.png", top = 107, 
+	left <- 130 + countdown * prog_green.contentWidth,
+	transparency = 1.0 
+    }; 
+
+    Image puck_yellow = Image{ 
+	imageFile = "dds/FaF-640x480-ScrambleBoost-Puck-YELLOW-1.png", 
+	top = 107, 
+	left <- 130 + countdown * prog_yellow.contentWidth,
+	transparency = 1.0
+    }; 
+
+    Image puck_red = Image{ 
+	imageFile = "dds/FaF-640x480-ScrambleBoost-Puck-RED-1.png", 
+	top = 107, 
+	left <- 130 + countdown * prog_red.contentWidth,
+	transparency = 1.0
+    }; 
+
+    DDS turbine = @DDS { 
+	ddsFile = "dds/ff4_turbine.dds", 
+	top = 45, 
+	left = 35, 
+	transparency = 1.0,
+	value <- @Timer { cycleInterval = 0.6, loop=true }.fraction
+    };
+
+    Image chrome_ring = Image { 
+	imageFile = "dds/FaF-ScrambleBoost-ChromeCircle-1.png",
+	top = 40, 
+	left = 24, 
+	transparency = 0.0 
+    }; 
+
+    Image scrambleAlert = @Image { 
+	imageFile = "dds/FaF-640x480-ScrambleBoost-DialogBox-1.png",
+	top = 0, 
+	left = 0
+    }; 
+
+    Image underlay = Image{ 
+	imageFile = "dds/FaF-640x480-ScrambleBoost-DialogBoxUnderLay-1.png", 
+	transparency = 1.0, 
+	children = {  prog_green, prog_yellow, prog_red, puck_green, puck_yellow, puck_red, scrambleAlert, text,  turbine, chrome_ring }
+    };
+
+    // Clear ESC
+    script keyVal when keyVal == 1 && keyVal != oldVal {
+	oldVal = keyVal;
+	state = not_showing;
+
+ 	underlay.transparency <- @ScalarInterpolator { 
+	    key = { 0.0, 1.0 }, keyValue = { underlay.transparency, 1.0 },
+	    value = underlay.transparency,
+	    fraction <- @Timer { cycleInterval = 0.3 }.fraction
+	}.value;
+
+	countdown <- nil;
+	countdown = -1.0;
+
+	prog_green.transparency <- nil;
+	prog_yellow.transparency <- nil;
+	prog_red.transparency <- nil;
+
+	puck_green.transparency <- nil;
+	puck_yellow.transparency <- nil;
+	puck_red.transparency <- nil;
+
+	prog_green.transparency = 1.0;
+	prog_yellow.transparency = 1.0;
+	prog_red.transparency = 1.0;
+
+	puck_green.transparency = 1.0;
+	puck_yellow.transparency = 1.0;
+	puck_red.transparency = 1.0;
+
+	.EngineBaseLib.engine.channels[.EC.map_mbar].value <- .EngineLib.device.map;
+	.EngineBaseLib.engine.channels[.EC.kph].value <- .EngineLib.device.spd;
+	.EngineBaseLib.engine.channels[.EC.rpm].value <- .EngineLib.device.rpm;
+    }
+
+    
+    // Set RPM. '1-9'
+    script keyVal when keyVal > 1 && keyVal < 11 && keyVal != oldVal{
+	float interval = abs(.EngineBaseLib.engine.channels[.EC.rpm].value - (@float(keyVal - 1) * 1000.0)) / 700.0;
+
+
+	oldVal = keyVal;
+
+	.EngineBaseLib.engine.channels[.EC.rpm].value <- @ScalarInterpolator { 
+	    key = { 0.0, 1.0 }, 
+	    keyValue = { .EngineBaseLib.engine.channels[.EC.rpm].value, @float(keyVal - 1) * 1000 },
+	    fraction <- @Timer { cycleInterval = interval }.fraction
+	}.value;
+
+	// Tie KPH to RPM
+	.EngineBaseLib.engine.channels[.EC.kph].value <- (.EngineBaseLib.engine.channels[.EC.rpm].value / 30);
+
+    }
+
+
+    // Move from green to yellow state
+    script countdown when countdown < 0.5 && state == green {
+	state = yellow;
+	transition<- @Timer { cycleInterval = 0.2 }.fraction;
+
+	prog_green.transparency <- transition;
+	puck_green.transparency <- transition;
+	prog_yellow.transparency <- 1.0 - transition;
+	puck_yellow.transparency <- 1.0 - transition;
+    }
+
+    // Move from yellow to red
+    script countdown when countdown < 0.3 && state == yellow {
+	state = red;
+	transition <- @Timer { cycleInterval = 0.2 }.fraction;
+
+	prog_yellow.transparency <- transition;
+	puck_yellow.transparency <- transition;
+	prog_red.transparency <- 1.0 - transition;
+	puck_red.transparency <- 1.0 - transition;
+
+    }
+
+    // Move from green to yellow state
+    script countdown when countdown == 0.0 && state == red {
+	*keyVal = 1;
+    }
+
+
+    // Scramble boost dialog 'B'
+    script keyVal when keyVal == 48 && keyVal != oldVal {
+	printf("Boost\n");
+
+	oldVal = keyVal;
+	state = green;
+
+	transp <- 1.0 - @Timer { cycleInterval = 0.3 }.fraction;
+
+	underlay.transparency = 0.0;
+	turbine.transparency <- transp;
+	prog_green.transparency <- transp;
+	puck_green.transparency <- transp;
+
+	.EngineBaseLib.engine.channels[.EC.map_mbar].value <- nil;
+	.EngineBaseLib.engine.channels[.EC.map_mbar].value = 2000; 
+
+	countdown <- 1.0 - @Timer { cycleInterval = 7.0 }.fraction;
+	//
+	// Tie up the progressbar to countdown.
+	//
+	prog_green.width <- countdown * prog_green.contentWidth;
+	prog_green.height = prog_green.contentHeight;
+	prog_green.clip = true;
+
+	prog_yellow.width <- countdown * prog_yellow.contentWidth;
+	prog_yellow.height = prog_yellow.contentHeight;
+	prog_yellow.clip = true;
+
+	prog_red.width <- countdown * prog_red.contentWidth;
+	prog_red.height = prog_red.contentHeight;
+	prog_red.clip = true;
+	
+    }	
+
+    //    puck_green.left <- countdown * (prog_green.contentWidth - 100);
+    puck_green.left = 100;
+
+    underlay.left <- .ScreenLib.screen.width / 2 - underlay.contentWidth / 2;
+    underlay.top <- .ScreenLib.screen.height / 2 - underlay.contentHeight / 2;
+
+    .EngineLib.device.port = "launch/caterhamdump.pi3";
+    .ADLib.adDevice.port = "sim"; // Trigger simulation mode.
+    .ScreenLib.screen.children[size(.ScreenLib.screen.children)] = underlay;
+    .EngineLib.device.readInterval = 15000;
+    .EngineBaseLib.engine.vehicleProfiles[0].chanProf[.EC.map_psiin].maxWarn = 15;
+    .EngineBaseLib.engine.vehicleProfiles[0].chanProf[.EC.map_psiin].maxCritical = 20;
+}

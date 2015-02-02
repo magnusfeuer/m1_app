@@ -1,0 +1,43 @@
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+//
+// Honda Civic SI
+//
+int ind = size(.EngineBaseLib.engine.vehicleProfiles);
+
+type HondaCivicSIMan: :EngineBaseLib:VehicleProfile {
+    make = "Honda";
+    model = "Civic Si";
+    imageFile = "dds/honda_civic_si.png";
+    startYear = 2006;
+    stopYear = 2010; // Unknown.
+    gearType = 1; // manual`
+    curbWeight = 1390; // Curb weight + driver.
+    length = 444; // In cm.
+    width = 175;
+    height = 136;
+    wheelBase = 265;
+    displacement = 200; // cubic centimetres. 
+    cylinders = 4;
+    cylinderConfig = 1; // Inline
+    obdIIProtocol = 0; // ISO9141 preset does not yet work.
+
+    gearCount = 6;
+    tireWidth = 215;
+    tireSidewallRatio = 45;
+    tireRimDiameter = 17;
+
+    chanProf[.EC.rpm].max = 9000;    
+    chanProf[.EC.rpm].maxWarn = 7750;    
+    chanProf[.EC.rpm].maxCritical = 8000;   
+};
+
+.EngineBaseLib.engine.vehicleProfiles[ind] = @HondaCivicSIMan {};
+
+if (.EngineBaseLib.engine.currentVehicleProfile == -1)
+    .EngineBaseLib.engine.currentVehicleProfile = 0;
+

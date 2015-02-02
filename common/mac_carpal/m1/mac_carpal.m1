@@ -1,0 +1,9 @@
+//
+// Just setup the source for the PiSYS3 stream
+//
+// Moved to pi_engine.m1
+
+// .EngineLib.device.port = 
+// .EngineLib.device.readInterval = 20000;
+.ADLib.adDevice.port = "sim"; // Trigger simulation mode.
+

@@ -1,0 +1,19 @@
+Nissan Skyline GTR 2001(?)
+
+consult_device.cc:395: CConsultDevice::getSupportedPIDs(): [s_trim_1] supported
+consult_device.cc:395: CConsultDevice::getSupportedPIDs(): [l_trim_1] supported
+consult_device.cc:395: CConsultDevice::getSupportedPIDs(): [s_trim_2] supported
+consult_device.cc:395: CConsultDevice::getSupportedPIDs(): [l_trim_2] supported
+consult_device.cc:395: CConsultDevice::getSupportedPIDs(): [timing] supported
+consult_device.cc:395: CConsultDevice::getSupportedPIDs(): [rpm] supported
+consult_device.cc:395: CConsultDevice::getSupportedPIDs(): [spd] supported
+consult_device.cc:395: CConsultDevice::getSupportedPIDs(): [lam_1] supported
+consult_device.cc:395: CConsultDevice::getSupportedPIDs(): [lam_2] supported
+consult_device.cc:395: CConsultDevice::getSupportedPIDs(): [maf] supported
+consult_device.cc:395: CConsultDevice::getSupportedPIDs(): [tps] supported
+consult_device.cc:395: CConsultDevice::getSupportedPIDs(): [ect] supported
+consult_device.cc:395: CConsultDevice::getSupportedPIDs(): [map] supported
+consult_device.cc:395: CConsultDevice::getSupportedPIDs(): [act] supported // Not on standard GT
+consult_device.cc:395: CConsultDevice::getSupportedPIDs(): [vbat] supported
+consult_device.cc:395: CConsultDevice::getSupportedPIDs(): [fpw] supported
+

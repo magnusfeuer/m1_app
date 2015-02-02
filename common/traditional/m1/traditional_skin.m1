@@ -1,0 +1,1565 @@
+// -*- c++ -*-
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007, 2008.
+//
+
+library TraditionalSkinLib {
+
+    type TraditionalGauge: :SkinLib:GaugeDDS {
+	float scaleMin = 0;
+	float scaleMax = 0;
+
+	script channel || cProfile when channel != nil && channel.normal != nil && cProfile != nil && scaleMin != scaleMax {
+	    // We need to peg the actual value to the scale, not the input value.
+//  	    printf("scaleMax[%.0f] - scaleMin[%.0f] = %.0f     profMax[%f] - profMin[%f] = %f  factor[%f]\n", 
+//  		   scaleMax, scaleMin, scaleMax - scaleMin,
+//  		   cProfile.max, cProfile.min, cProfile.max - cProfile.min,
+// 		   (scaleMax - scaleMin) / (cProfile.max - cProfile.min));		   
+
+	    value <- channel.normal.value / ((scaleMax - scaleMin) / (cProfile.max - cProfile.min)) + (((scaleMax - scaleMin) / (cProfile.max - cProfile.min)) * (cProfile.min - scaleMin)) / (scaleMax - scaleMin);
+
+	    *value = channel.normal.value / ((scaleMax - scaleMin) / (cProfile.max - cProfile.min)) + (((scaleMax - scaleMin) / (cProfile.max - cProfile.min)) * (cProfile.min - scaleMin)) / (scaleMax - scaleMin);
+
+	    //	    value <- channel.normal.value / ((scaleMax - scaleMin) / (cProfile.max - cProfile.min)) + (((scaleMax - scaleMin) / (cProfile.max - cProfile.min)) * (cProfile.min - scaleMin)) / (scaleMax - scaleMin);
+	    //	    *value = channel.normal.value / ((scaleMax - scaleMin) / (cProfile.max - cProfile.min)) + (((scaleMax - scaleMin) / (cProfile.max - cProfile.min)) * (cProfile.min - scaleMin)) / (scaleMax - scaleMin);
+
+
+	    //	    value <- channel.normal.value / ((scaleMin + (scaleMax - scaleMin)) / (cProfile.min + (cProfile.max - cProfile.min)));
+	    //	    *value = channel.normal.value / ((scaleMin + (scaleMax - scaleMin)) / (cProfile.min + (cProfile.max - cProfile.min)));
+	}
+    };
+
+    
+    type TraditionalSkin :SkinLib:Manager:Base {
+ 	int small_templates[] =  {
+ 	    // 1-18
+ 	    1, // rpm = 0;
+ 	    1, // map_mbar = 1;
+ 	    -1, // 22, // map_psi = 2;
+ 	    -1, // 23, // map_mbarcm = 3;
+ 	    1, // map_psiin = 4;
+ 	    1, // kph = 5;
+ 	    1, // mph = 6;
+ 	    -1, // trim_1 = 7;
+ 	    -1, // trim_2 = 8;
+ 	    1, // lam_1_1_l = 9;
+ 	    1, // lam_1_1_a = 10;
+ 	    1, // lam_1_1_v = 11;
+ 	    1, // lam_1_2_l = 12;
+ 	    1, // lam_1_2_a = 13;
+ 	    1, // lam_1_2_v = 14;
+ 	    1, // lam_2_1_l = 15;
+ 	    1, // lam_2_1_a = 16;
+ 	    1, // lam_2_1_v = 17;
+ 	    1, // lam_2_2_l = 18;
+ 	    1, // lam_2_2_a = 19;
+ 	    1, // lam_2_2_v = 20;
+ 	    -1, // load  = 21;
+ 	    1, // ect_c = 18;
+ 	    1, // ect_f = 19;
+ 	    1, // iat_c = 20;
+ 	    1, // iat_f = 21;
+ 	    1, // aat_c = 22;
+ 	    1, // aat_f = 23;
+ 	    1, // eot_c = 24;
+ 	    1, // eot_f  = 25;
+ 	    1, // vbat = 26;
+ 	    1, // ign_ad v= 27; 
+ 	    1, // maf_g = 28;
+ 	    1, // maf_o = 29;  
+ 	    1, // abs tps = 30;  
+ 	    1, // relative TPS.
+ 	    1, // fp_mbar
+ 	    1, // fp_psi
+ 	    1, // fuel_lev 
+ 	    1, // bap_mbar 
+ 	    1, // bap_psi
+ 	    1, // hp
+ 	    1, // torque_nm
+ 	    1, // torque_lbft
+ 	    3, // gear =
+ 	    -1, // lp100k  10, // Litres per 100 km. = ;
+ 	    1, // mpg 
+ 	    1, // gforce ; 10, // in milliG = ;
+ 	    1, // eop_mbar 43 Engine oil pressure mbar
+ 	    1, // eop_psi 44 Engine oil pressure psi
+ 	    1, // egt1_c 45 Exhaust gas temp C
+ 	    1, // egt1_f 46 Exhaust gas temp F
+ 	    1, // egt2_c 47 Exhaust gas temp C
+ 	    1, // egt2_f 48 Exhaust gas temp F
+ 	    1, // egt3_c 49 Exhaust gas temp C
+ 	    1, // egt3_f 50 Exhaust gas temp F
+ 	    1, // egt4_c 51 Exhaust gas temp C
+ 	    1, // egt4_f 52 Exhaust gas temp F
+ 	    1, // egt5_c 53 Exhaust gas temp C
+ 	    1, // egt5_f 54 Exhaust gas temp pF
+ 	    1, // egt6_c 55 Exhaust gas temp C
+ 	    1, // egt6_f 56 Exhaust gas temp F
+ 	    1, // egt7_c 57 Exhaust gas temp C
+	    1, // egt7_f 58 Exhaust gas temp F
+ 	    1, // egt8_c 59 Exhaust gas temp C
+ 	    1, // egt8_f 60 Exhaust gas temp F
+ 	    1, // bip_mbar 61 Pre intercooler pressure.
+ 	    1, // bip_psi 62 Pre intercooler pressure.
+ 	    1, // aip_mbar 631 Post intercooler pressure.
+ 	    1, // aip_psi 64 Post intercooler pressure.
+ 	    1, // ccp_mbar 65 Crank case pressure.
+ 	    1, // ccp_psi 66 Crank case pressure.
+ 	    1, // wp_mbar 67 Water pressure
+ 	    1, // wp_psi 68 Water pressure
+ 	    1, // fdt_c 69 Front Diff Temp
+ 	    1, // fdt_f 70 Front Diff Temp
+ 	    1, // rdt_c 71 Rear Diff Temp
+ 	    1, // rdt_f 72 Rear Diff Temp
+ 	    1, // cdt_c 73 Center Diff Temp
+ 	    1, // cdt_f 74 Center Diff Temp
+ 	    1, // gbt_c 75 Gear box temp
+ 	    1, // gbt_f 76 Gear box temp
+ 	    1, // bit_c 77 Before indtercooler temp.
+ 	    1, // bit_f 78 Before intercooler temp.
+ 	    1, // ait_c 79 After intercooler temp.
+ 	    1, // ait_f 80 After intercooler temp.
+ 	    1, // ft_c 81 Fuel temp
+ 	    1, // ft_f 82 Fuel temp.
+ 	    -1, // latency 83 ECU latency.
+ 	    1 // Fuel pulse width.
+ 	};
+
+ 	int large_templates[] =  {
+ 	    // 1-18
+ 	    0, // rpm = 0;
+ 	    0, // map_mbar = 1;
+ 	    -1, // 4, // map_psi = 2;
+ 	    -1, // 5, // map_mbarcm = 3;
+ 	    0, // map_psiin = 4;
+ 	    0, // kph = 5;
+ 	    0, // mph = 6;
+ 	    -1, // trim_1 = 7;
+ 	    -1, // trim_2 = 8;
+	    0, // lam_1_1_l = 9;
+ 	    0, // lam_1_1_a = 10;
+ 	    0, // lam_1_1_v = 11;
+ 	    0, // lam_1_2_l = 12;
+ 	    0, // lam_1_2_a = 13;
+ 	    0, // lam_1_2_v = 14;
+ 	    0, // lam_2_1_l = 15;
+ 	    0, // lam_2_1_a = 16;
+ 	    0, // lam_2_1_v = 17;
+ 	    0, // lam_2_2_l = 18;
+ 	    0, // lam_2_2_a = 19;
+ 	    0, // lam_2_2_v = 20;
+ 	    -1, // load  = 21;
+ 	    0, // ect_c = 18;
+ 	    0, // ect_f = 19;
+ 	    0, // iat_c = 20;
+ 	    0, // iat_f = 21;
+ 	    0, // aat_c = 22;
+ 	    0, // aat_f = 23;
+ 	    0, // eot_c = 24;
+ 	    0, // eot_f  = 25;
+ 	    0, // vbat = 26;
+ 	    0, // ign_adv = 27; 
+ 	    0, // maf_g = 28;
+ 	    0, // maf_o = 29;  
+ 	    0, // absolute tps 
+ 	    0, // relative tps
+ 	    0, // fp_mbar = 31;
+ 	    0, // fp_psi = 32;
+ 	    0, // fuel_lev  = 33;
+ 	    0, // bap_mbar = 34;
+ 	    0, // bap_psi = 35;
+ 	    0, // hp =36; 
+ 	    0, // torque_nm = 37;
+ 	    0, // torque_lbft = 38; 
+ 	    2, // gear = 39;
+ 	    -1, // lp100k = 40; 10, // Litres per 100 km. = ;
+ 	    0, // mpg = 41;      
+	    0, // gforce = 42; 10, // in milliG = ;
+ 	    0, // eop_mbar 43 Engine oil pressure mbar
+ 	    0, // eop_psi 44 Engine oil pressure psi
+ 	    0, // egt1_c 45 Exhaust gas temp C
+ 	    0, // egt1_f 46 Exhaust gas temp F
+ 	    0, // egt2_c 47 Exhaust gas temp C
+ 	    0, // egt2_f 48 Exhaust gas temp F
+ 	    0, // egt3_c 49 Exhaust gas temp C
+ 	    0, // egt3_f 50 Exhaust gas temp F
+ 	    0, // egt4_c 51 Exhaust gas temp C
+ 	    0, // egt4_f 52 Exhaust gas temp F
+ 	    0, // egt5_c 53 Exhaust gas temp C
+ 	    0, // egt5_f 54 Exhaust gas temp pF
+ 	    0, // egt6_c 55 Exhaust gas temp C
+ 	    0, // egt6_f 56 Exhaust gas temp F
+ 	    0, // egt7_c 57 Exhaust gas temp C
+ 	    0, // egt7_f 58 Exhaust gas temp F
+ 	    0, // egt8_c 59 Exhaust gas temp C
+ 	    0, // egt8_f 60 Exhaust gas temp F
+ 	    0, // bip_mbar 61 Pre intercooler pressure.
+ 	    0, // bip_psi 62 Pre intercooler pressure.
+ 	    0, // aip_mbar 631 Post intercooler pressure.
+ 	    0, // aip_psi 64 Post intercooler pressure.
+ 	    0, // ccp_mbar 65 Crank case pressure.
+ 	    0, // ccp_psi 66 Crank case pressure.
+ 	    0, // wp_mbar 67 Water pressure
+ 	    0, // wp_psi 68 Water pressure
+ 	    0, // fdt_c 69 Front Diff Temp
+ 	    0, // fdt_f 70 Front Diff Temp
+ 	    0, // rdt_c 71 Rear Diff Temp
+ 	    0, // rdt_f 72 Rear Diff Temp
+ 	    0, // cdt_c 73 Center Diff Temp
+ 	    0, // cdt_f 74 Center Diff Temp
+ 	    0, // gbt_c 75 Gear box temp
+ 	    0, // gbt_f 76 Gear box temp
+ 	    0, // bit_c 77 Before indtercooler temp.
+ 	    0, // bit_f 78 Before intercooler temp.
+ 	    0, // ait_c 79 After intercooler temp.
+ 	    0, // ait_f 80 After intercooler temp.
+ 	    0, // ft_c 81 Fuel temp
+ 	    0, // ft_f 82 Fuel temp.
+ 	    -1, // latency 83 ECU latency.
+ 	    0// Fuel pulse width.
+ 	};
+	int templ_ind;
+
+	Layer large_labels = Layer { 
+	    children = {
+		@Text { // Bottom line - Contains gauge name (RPM, Speed etc)
+		    fontName = "Arial",
+		    fontSize = 22,
+		    fontWeight = medium,
+		    left = 0,
+		    top = 232,
+		    width = 278,
+		    height = 278,
+		    halign = center
+		},
+		@Text { // Top line - Contains gauge metrics (kph, mph, etc)
+		    fontName = "Arial",
+		    fontSize = 18,
+		    fontWeight = medium,
+		    left = 0,
+		    top = 180,
+		    width = 278,
+		    height = 278,
+		    halign = center
+		}
+	    }
+	};
+
+
+	Layer large_gear_labels = Layer { 
+	    children = {
+		@Text { // Top line - Contains gauge name (RPM, Speed etc)
+		    fontName = "Arial",
+		    fontSize = 22,
+		    fontWeight = medium,
+		    left = 0,
+		    top = 217,
+		    width = 278,
+		    height = 278,
+		    halign = center
+		},
+		@Text { // Bottom line - Contains gauge metrics (kph, mph, etc) NOT USED HERE
+		    fontName = "Arial",
+		    fontSize = 18,
+		    fontWeight = medium,
+		    left = 0,
+		    top = 170,
+		    width = 278,
+		    height = 278,
+		    halign = center
+		}
+	    }
+	};
+
+
+	Layer small_gear_labels = Layer { 
+	    children = {
+		@Text { // Bottom line - Contains gauge name (RPM, Speed etc)
+		    fontName = "Arial",
+		    fontSize = 20,
+		    fontWeight = medium,
+		    left = -5,
+		    top = 120,
+		    width = 178,
+		    height = 178,
+		    halign = center
+		},
+		@Text { // Top line - Contains gauge metrics (kph, mph, etc) NOT USED HERE
+		    fontName = "Arial",
+		    fontSize = 16,
+		    fontWeight = medium,
+		    left = 0,
+		    top = 110,
+		    width = 178,
+		    height = 178,
+		    halign = center
+		}
+	    }
+	};
+
+
+	Layer small_labels = Layer { 
+	    width = 178,
+	    children = {
+		@Text { // Bottom line - Contains gauge name (RPM, Speed etc)
+		    fontName = "Arial",
+		    fontSize = 14,
+		    fontWeight = medium,
+		    left = -8,
+		    top = 140,
+		    width = 178,
+		    height = 178,
+		    halign = center
+		},
+		@Text { // Top line - Contains gauge metrics (kph, mph, etc)
+		    fontName = "Arial",
+		    fontSize = 16,
+		    fontWeight = medium,
+		    left = -8,
+		    top = 108,
+		    width = 178,
+		    height = 178,
+		    halign = center
+		}
+	    }
+	};
+
+	// No x100, x1000 etc modifiers used
+	Layer small_labels_no_mod = Layer { 
+	    width = 178,
+	    children = {
+		@Text { // Bottom line - Contains gauge name (RPM, Speed etc)
+		    fontName = "Arial",
+		    fontSize = 14,
+		    fontWeight = medium,
+		    left = -8,
+		    top = 140,
+		    width = 178,
+		    height = 178,
+		    halign = center
+		},
+		@Text { // Top line - Contains gauge metrics (kph, mph, etc)
+		    fontName = "Arial",
+		    fontSize = 16,
+		    fontWeight = medium,
+		    left = -8,
+		    top = 98,
+		    width = 178,
+		    height = 178,
+		    halign = center
+		}
+	    }
+	};
+
+ 	:SkinLib:GaugeLayer small_needle = :SkinLib:GaugeLayer {
+ 	    gaugeChildren = { 
+		@TraditionalGauge { ddsFileFormat = "dds/TRADITIONAL-Standard-%s-SmallNeedle1.dds", frameStop = 0.905, frameStart = 0.095 }, 
+		@:SkinLib:GaugeDDS { ddsFileFormat = "dds/TRADITIONAL-Standard-%s-CenterKnobSmall.dds", top = 69, left = 68, useBG = true }
+	    }
+	    
+ 	};
+
+ 	:SkinLib:GaugeLayer large_needle = :SkinLib:GaugeLayer {
+ 	    gaugeChildren = {
+		@TraditionalGauge { ddsFileFormat = "dds/TRADITIONAL-Standard-%s-BigNeedle1.dds", frameStop = 0.897, frameStart = 0.101 },
+		@:SkinLib:GaugeDDS { ddsFileFormat = "dds/TRADITIONAL-Standard-%s-CenterKnob.dds", top = 110, left = 110, useBG = true }
+	    }
+ 	};
+
+	//
+	// This class installs digits on a facia.
+	// All digits will be installed as children under self.
+	//
+	type DigitLocation {
+	    float top;
+	    float left;
+	    HAlign halign = none;
+	    VAlign valign = none;
+	};
+
+
+	type FaciaDigits: :SkinLib:GaugeDDS {
+            :SkinLib:Manager:Base ownerSkin;
+            DDS facia = nil;
+	    string values[] = {};
+	    string digitFmt = "%.f";
+	    event string modLabelString = ""; // hows x10 /10 x100 etc.
+	    DigitLocation locations[] = {};
+	    Text master = nil; // Digits copied from this master.
+	    Text modLabel = nil;
+
+	    script FaciaDigits {
+		int i = 0;
+		int child_ind = 0;
+		DigitLocation ind;
+
+
+		if (facia != nil) {
+		    children[child_ind] = facia;
+		    child_ind++;
+		}
+
+		if (modLabel != nil) {
+		    children[child_ind] = modLabel;
+		    child_ind++;
+		    modLabel.text <- modLabelString;
+		} 
+		  
+
+		if (master == nil) 
+		    break;
+
+		foreach ind in locations {
+		    Text new_txt;
+
+		    //		    printf("ind[%d]. size(values)=%d\n", i, size(values));
+		    
+		    new_txt = copy(master);
+		    new_txt := master;
+		    new_txt.top = ind.top;
+		    new_txt.left = ind.left;
+		    new_txt.text = values[i];
+		    new_txt.width <- width; // HERE
+		    new_txt.height <- height;
+		    new_txt.halign = ind.halign;
+		    new_txt.valign = ind.valign;
+		    new_txt.fontColor <- ownerSkin.labelColor;
+		    new_txt.transparency <- ownerSkin.labelTransparency;
+		    children[child_ind] = new_txt;
+		    ++i;
+		    child_ind++;
+		}
+	    }
+	    script destroy when destroy {
+		Layer child;
+		//		printf("FaciaDigits:destroy(): called\n");
+		if (modLabel != nil) {
+		    modLabel.top <- nil;
+		    modLabel.left <- nil;
+		    modLabel.width <- nil;
+		    modLabel.height <- nil;
+		    modLabel.text <- nil;
+		    modLabel.fontColor <- nil;
+		    modLabel.transparency <- nil;
+		}
+		modLabel = nil;
+
+		facia = nil;
+		values = nil;
+		locations = nil;
+		master = nil;
+		children = {};
+	    }
+	};
+
+	//
+	// 0 digits. Used for gear position
+	//
+	type FaciaLarge0Digits : FaciaDigits {
+	    Text @FaciaDigits.master = nil;
+	    DDS @FaciaDigits.facia = nil;
+	    Text @FaciaDigits.modLabel = @Text { // These are the digits we will use
+		fontName = "Arial",
+		fontSize = 18,
+		fontWeight = medium,
+		fontColor = 0x999999,
+//		width <- facia.contentWidth,
+		halign = center, 
+		top = 155
+	    };
+	    float @FaciaDigits.top = 1;
+	    float @FaciaDigits.left = 3;
+	    DigitLocation @FaciaDigits.locations[] = { // Clockwise from left bottom.
+	    };
+
+	    modLabel.fontColor <- ownerSkin.labelColor;
+	    modLabel.transparency <- ownerSkin.labelTransparency;
+	    *width = 275;
+	    *height = 275;
+	};
+
+	type FaciaSmall0Digits : FaciaDigits {
+	    Text @FaciaDigits.master = nil;
+	    DDS @FaciaDigits.facia = nil;
+	    Text @FaciaDigits.modLabel = @Text { // These are the digits we will use
+		fontName = "Arial",
+		fontSize = 16,
+		fontWeight = medium,
+		fontColor = 0x999999,
+		//width <- facia.contentWidth,
+		halign = center, 
+		top = 95
+	    };
+
+	    float @FaciaDigits.top = -3;
+	    float @FaciaDigits.left = -5;
+	    DigitLocation @FaciaDigits.locations[] = { // Clockwise from left bottom.
+	    };
+	    modLabel.fontColor <- ownerSkin.labelColor;
+	    modLabel.transparency <- ownerSkin.labelTransparency;
+	    *width = 175;
+	    *height = 175;
+	};
+
+
+	//
+	// 7 digits
+	//
+	type FaciaLarge7Digits : FaciaDigits {
+	    DDS @FaciaDigits.facia = @DDS { ddsFile = "dds/TRADITIONAL-Standard-White-Big_3_1_1_3_1.dds", transparency = 0.4, top = 2, left = 0};
+	    Text @FaciaDigits.master = @Text { // These are the digits we will use
+		fontName = "Arial",
+		fontSize = 18,
+		fontSlant = italic,
+		fontWeight = medium,
+		fontColor = 0x999999
+	    };
+	    Text @FaciaDigits.modLabel = @Text { // These are the digits we will use
+		fontName = "Arial",
+		fontSize = 18,
+		fontWeight = medium,
+		fontColor = 0x999999,
+		width <- width,
+		halign = center, 
+		top = 155
+	    };
+	    float @FaciaDigits.top = 1;
+	    float @FaciaDigits.left = 3;
+	    float @FaciaDigits.frameStart = 0.1;
+	    float @FaciaDigits.frameStop = 0.9;
+	    DigitLocation @FaciaDigits.locations[] = { // Clockwise from left bottom.
+		@DigitLocation { top = -45, left = -58, halign = center, valign = bottom },
+		@DigitLocation { top = 10, left = 28, halign = left, valign = center },
+		@DigitLocation { top = 60, left = 55, halign = left, valign = top },
+
+		@DigitLocation { top = 25,  left = 0, halign = center, valign = top },
+
+		@DigitLocation { top = 60, left = -57, halign = right, valign = top },
+		@DigitLocation { top = 10, left = -28, halign = right, valign = center },
+		@DigitLocation { top = -45, left = 58, halign = center, valign = bottom }
+	    };
+
+	    modLabel.fontColor <- ownerSkin.labelColor;
+	    modLabel.transparency <- ownerSkin.labelTransparency;
+	    *width = 275;
+	    *height = 275;
+	};
+
+	type FaciaSmall7Digits : FaciaDigits {
+	    DDS @FaciaDigits.facia = @DDS { ddsFile = "dds/TRADITIONAL-Standard-White-Small_3_1_1_3_1.dds", transparency = 0.4, top = -3, left = 0 };
+	    Text @FaciaDigits.master = @Text {
+ 		fontName = "Arial",
+		fontSlant = italic,
+ 		fontSize = 14,
+ 		fontWeight = medium,
+ 		fontColor = 0x999999
+ 	    };
+	    Text @FaciaDigits.modLabel = @Text { // These are the digits we will use
+		fontName = "Arial",
+		fontSize = 16,
+		fontWeight = medium,
+		fontColor = 0x999999,
+		width <- width,
+		halign = center, 
+		top = 95
+	    };
+
+	    float @FaciaDigits.top = -3;
+	    float @FaciaDigits.left = -5;
+	    float @FaciaDigits.frameStart = 0.102;
+	    float @FaciaDigits.frameStop = 0.905;
+	    DigitLocation @FaciaDigits.locations[] = { // Clockwise from left bottom.
+		@DigitLocation { top = -37, left = -35, halign = center, valign = bottom },
+		@DigitLocation { top = 0, left = 25, halign = left, valign = center },
+		@DigitLocation { top = 35, left = 40, halign = left, valign = top },
+
+		@DigitLocation { top = 20,  left = 0, halign = center, valign = top },
+
+		@DigitLocation { top = 35, left = -42, halign = right, valign = top },
+		@DigitLocation { top = 0, left = -28, halign = right, valign = center },
+		@DigitLocation { top = -37, left = 35, halign = center, valign = bottom }
+	    };
+	    modLabel.fontColor <- ownerSkin.labelColor;
+	    modLabel.transparency <- ownerSkin.labelTransparency;
+	    *width = 175;
+	    *height = 175;
+	};
+
+
+	//
+	// 9 digits
+	//
+	type FaciaLarge9Digits : FaciaDigits {
+	    DDS @FaciaDigits.facia = @DDS { ddsFile = "dds/TRADITIONAL-Standard-White-Big_4_1_1_4_1.dds", transparency = 0.4, top = 2, left = 0 };
+	    Text @FaciaDigits.master = @Text { // These are the digits we will use
+ 		fontName = "Arial",
+		fontSlant = italic,
+ 		fontSize = 18,
+ 		fontWeight = medium,
+ 		fontColor = 0x999999
+	    };
+	    Text @FaciaDigits.modLabel = @Text { // These are the digits we will use
+		fontName = "Arial",
+		fontSize = 18,
+		fontWeight = medium,
+		fontColor = 0x999999,
+		width <- width,
+		halign = center, 
+		top = 155
+	    };
+	    float @FaciaDigits.top = 1;
+	    float @FaciaDigits.left = 3;
+	    float @FaciaDigits.frameStart = 0.099;
+	    float @FaciaDigits.frameStop = 0.9;
+	    DigitLocation @FaciaDigits.locations[] = { // Clockwise from left bottom.
+		@DigitLocation { top = -42, left = -60, halign = center, valign = bottom },
+		@DigitLocation { top = 30, left = 30, halign = left, valign = center },
+		@DigitLocation { top = -30, left = 30, halign = left, valign = center },
+		@DigitLocation { top = 42, left = 70, halign = left, valign = top },
+
+		@DigitLocation { top = 23,  left = 0, halign = center, valign = top },
+
+		@DigitLocation { top = 42, left = -73, halign = right, valign = top },
+		@DigitLocation { top = -30, left = -30, halign = right, valign = center },
+		@DigitLocation { top = 30, left = -30, halign = right, valign = center },
+		@DigitLocation { top = -42, left = 60, halign = center, valign = bottom }
+	    };
+
+	    modLabel.fontColor <- ownerSkin.labelColor;
+	    modLabel.transparency <- ownerSkin.labelTransparency;
+	    *width = 275;
+	    *height = 275;
+	};
+
+	type FaciaSmall9Digits : FaciaDigits {
+	    DDS @FaciaDigits.facia = @DDS { ddsFile = "dds/TRADITIONAL-Standard-White-Small_4_1_1_4_1.dds", transparency = 0.4, top = -3, left = 0 };
+	    Text @FaciaDigits.master = @Text {
+ 		fontName = "Arial",
+		fontSlant = italic,
+ 		fontSize = 14,
+ 		fontWeight = medium,
+ 		fontColor = 0x999999
+ 	    };
+	    Text @FaciaDigits.modLabel = @Text { // These are the digits we will use
+		fontName = "Arial",
+		fontSize = 16,
+		fontWeight = medium,
+		fontColor = 0x999999,
+		width <- width,
+		halign = center, 
+		top = 95
+	    };
+
+	    float @FaciaDigits.top = -3;
+	    float @FaciaDigits.left = -5;
+	    float @FaciaDigits.frameStart = 0.101;
+	    float @FaciaDigits.frameStop = 0.9;
+	    DigitLocation @FaciaDigits.locations[] = { // Clockwise from left bottom.
+		@DigitLocation { top = -35, left = -32, halign = center, valign = bottom },
+		@DigitLocation { top = 15, left = 27, halign = left, valign = center },
+		@DigitLocation { top = -22, left = 27, halign = left, valign = center },
+		@DigitLocation { top = 32, left = 47, halign = left, valign = top },
+
+		@DigitLocation { top = 17,  left = 0, halign = center, valign = top },
+
+		@DigitLocation { top = 32, left = -47, halign = right, valign = top },
+		@DigitLocation { top = -22, left = -27, halign = right, valign = center },
+		@DigitLocation { top = 15, left = -27, halign = right, valign = center },
+		@DigitLocation { top = -35, left = 32, halign = center, valign = bottom }
+
+// 		@DigitLocation { top = -32, left = -32, halign = center, valign = bottom },
+// 		@DigitLocation { top = 18, left = 27, halign = left, valign = center },
+// 		@DigitLocation { top = -19, left = 27, halign = left, valign = center },
+// 		@DigitLocation { top = 35, left = 43, halign = left, valign = top },
+
+// 		@DigitLocation { top = 20,  left = 0, halign = center, valign = top },
+
+// 		@DigitLocation { top = 35, left = -43, halign = right, valign = top },
+// 		@DigitLocation { top = -19, left = -27, halign = right, valign = center },
+// 		@DigitLocation { top = 18, left = -27, halign = right, valign = center },
+// 		@DigitLocation { top = -32, left = 32, halign = center, valign = bottom }
+
+	    };
+
+	    modLabel.fontColor <- ownerSkin.labelColor;
+	    modLabel.transparency <- ownerSkin.labelTransparency;
+	    *width = 175;
+	    *height = 175;
+	};
+
+	//
+	// 11 digits
+	//
+	type FaciaLarge11Digits : FaciaDigits {
+	    DDS @FaciaDigits.facia = @DDS { ddsFile = "dds/TRADITIONAL-Standard-White-Big_5_1_1_5_1.dds", transparency = 0.4, top = 2, left = 0};
+	    Text @FaciaDigits.master = @Text { // These are the digits we will use
+		fontName = "Arial",
+		fontSlant = italic,
+		fontSize = 18,
+		fontWeight = medium,
+		fontColor = 0x999999
+	    };
+	    Text @FaciaDigits.modLabel = @Text { // These are the digits we will use
+		fontName = "Arial",
+		fontSize = 18,
+		fontWeight = medium,
+		fontColor = 0x999999,
+		width <- width,
+		halign = center, 
+		top = 155
+	    };
+	    float @FaciaDigits.top = 1;
+	    float @FaciaDigits.left = 3;
+	    float @FaciaDigits.frameStart = 0.082;
+	    float @FaciaDigits.frameStop = 0.917;
+	    DigitLocation @FaciaDigits.locations[] = { // Clockwise from left bottom.
+		@DigitLocation { top = -37, left = -52, halign = center, valign = bottom },
+		@DigitLocation { top = 50, left = 42, halign = left, valign = center },
+		@DigitLocation { top = 0, left = 27, halign = left, valign = center },
+		@DigitLocation { top = 75, left = 42, halign = left, valign = top },
+
+		@DigitLocation { top = 40,  left = -50, halign = center, valign = top },
+		@DigitLocation { top = 23,  left = 0, halign = center, valign = top },
+		@DigitLocation { top = 40,  left = 50, halign = center, valign = top },
+
+		@DigitLocation { top = 75, left = -42, halign = right, valign = top },
+		@DigitLocation { top = 0, left = -27, halign = right, valign = center },
+		@DigitLocation { top = 50, left = -42, halign = right, valign = center },
+		@DigitLocation { top = -37, left = 52, halign = center, valign = bottom }
+	    };
+	    modLabel.fontColor <- ownerSkin.labelColor;
+	    modLabel.transparency <- ownerSkin.labelTransparency;
+	    *width = 275;
+	    *height = 275;
+	};
+
+	type FaciaSmall11Digits : FaciaDigits {
+	    DDS @FaciaDigits.facia = @DDS { ddsFile = "dds/TRADITIONAL-Standard-White-Small_5_1_1_5_1.dds", transparency = 0.4, top = 0, left = 0 };
+	    Text @FaciaDigits.master = @Text {
+ 		fontName = "Arial",
+		fontSlant = italic,
+ 		fontSize = 14,
+ 		fontWeight = medium,
+ 		fontColor = 0x999999
+ 	    };
+	    Text @FaciaDigits.modLabel = @Text { // These are the digits we will use
+		fontName = "Arial",
+		fontSize = 16,
+		fontWeight = medium,
+		fontColor = 0x999999,
+		width <- width,
+		halign = center, 
+		top = 95
+	    };
+
+	    float @FaciaDigits.top = -3;
+	    float @FaciaDigits.left = -5;
+	    float @FaciaDigits.frameStart = 0.082;
+	    float @FaciaDigits.frameStop = 0.92;
+	    DigitLocation @FaciaDigits.locations[] = { // Clockwise from left bottom.
+		@DigitLocation { top = -30, left = -28, halign = center, valign = bottom },
+		@DigitLocation { top = 27, left = 32, halign = left, valign = center },
+		@DigitLocation { top = 0, left = 24, halign = left, valign = center },
+		@DigitLocation { top = 50, left = 32, halign = left, valign = top },
+
+		@DigitLocation { top = 30,  left = -30, halign = center, valign = top },
+		@DigitLocation { top = 20,  left = 0, halign = center, valign = top },
+		@DigitLocation { top = 30,  left = 30, halign = center, valign = top },
+
+		@DigitLocation { top = 50, left = -32, halign = right, valign = top },
+		@DigitLocation { top = 0, left = -24, halign = right, valign = center },
+		@DigitLocation { top = 27, left = -32, halign = right, valign = center },
+		@DigitLocation { top = -30, left = 28, halign = center, valign = bottom }
+	    };
+	    modLabel.fontColor <- ownerSkin.labelColor;
+	    modLabel.transparency <- ownerSkin.labelTransparency;
+	    *width = 175;
+	    *height = 175;
+	};
+
+	//
+	// 13 digits
+	//
+	type FaciaLarge13Digits : FaciaDigits {
+	    DDS @FaciaDigits.facia = @DDS { ddsFile = "dds/TRADITIONAL-Standard-White-Big_6_1_1_6_1.dds", transparency = 0.4, top = 2, left = 0};
+	    Text @FaciaDigits.master = @Text { // These are the digits we will use
+		fontName = "Arial",
+		fontSlant = italic,
+		fontSize = 18,
+		fontWeight = medium,
+		fontColor = 0x999999
+	    };
+	    Text @FaciaDigits.modLabel = @Text { // These are the digits we will use
+		fontName = "Arial",
+		fontSize = 18,
+		fontWeight = medium,
+		fontColor = 0x999999,
+		width <- width,
+		halign = center, 
+		top = 155
+	    };
+	    float @FaciaDigits.top = 1;
+	    float @FaciaDigits.left = 3;
+	    float @FaciaDigits.frameStart = 0.098;
+	    float @FaciaDigits.frameStop = 0.900;
+	    DigitLocation @FaciaDigits.locations[] = { // Clockwise from left bottom.
+		@DigitLocation { top = -42, left = 70, halign = left, valign = bottom },
+		@DigitLocation { top = 50, left = 40, halign = left, valign = center },
+		@DigitLocation { top = 10, left = 27, halign = left, valign = center },
+		@DigitLocation { top = -30, left = 31, halign = left, valign = center },
+		@DigitLocation { top = 56, left = 53, halign = left, valign = top },
+
+		@DigitLocation { top = 33,  left = 77, halign = left, valign = top },
+		@DigitLocation { top = 21,  left = 0, halign = center, valign = top },
+		@DigitLocation { top = 33,  left = -77, halign = right, valign = top },
+
+		@DigitLocation { top = 56, left = -53, halign = right, valign = top },
+		@DigitLocation { top = -30, left = -31, halign = right, valign = center },
+		@DigitLocation { top = 10, left = -27, halign = right, valign = center },
+		@DigitLocation { top = 50, left = -40, halign = right, valign = center },
+		@DigitLocation { top = -42, left = -70, halign = right, valign = bottom }
+	    };
+	    modLabel.fontColor <- ownerSkin.labelColor;
+	    modLabel.transparency <- ownerSkin.labelTransparency;
+	    *width = 275;
+	    *height = 275;
+	};
+
+	type FaciaSmall13Digits : FaciaDigits {
+	    DDS @FaciaDigits.facia = @DDS { ddsFile = "dds/TRADITIONAL-Standard-White-Small_6_1_1_6_1.dds", transparency = 0.4, top = -3, left = 0 };
+ 	    Text @FaciaDigits.master = @Text {
+ 		fontName = "Arial",
+		fontSlant = italic,
+ 		fontSize = 14,
+ 		fontWeight = medium,
+ 		fontColor = 0x999999
+ 	    };
+
+	    Text @FaciaDigits.modLabel = @Text { // These are the digits we will use
+		fontName = "Arial",
+		fontSize = 16,
+		fontWeight = medium,
+		fontColor = 0x999999,
+		width <- width,
+		halign = center, 
+		top = 95
+	    };
+
+	    float @FaciaDigits.top = -3;
+	    float @FaciaDigits.left = -5;
+	    float @FaciaDigits.frameStart = 0.102;
+	    float @FaciaDigits.frameStop = 0.905;
+	    DigitLocation @FaciaDigits.locations[] = { // Clockwise from left bottom.
+		@DigitLocation { top = -32, left = 48, halign = left, valign = bottom },
+		@DigitLocation { top = 27, left = 32, halign = left, valign = center },
+		@DigitLocation { top = 5, left = 24, halign = left, valign = center },
+		@DigitLocation { top = 62, left = 27, halign = left, valign = top },
+		@DigitLocation { top = 41, left = 39, halign = left, valign = top },
+
+		@DigitLocation { top = 25,  left = 53, halign = left, valign = top },
+		@DigitLocation { top = 19,  left = 0, halign = center, valign = top },
+		@DigitLocation { top = 25,  left = -53, halign = right, valign = top },
+
+		@DigitLocation { top = 41, left = -39, halign = right, valign = top },
+		@DigitLocation { top = 62, left = -27, halign = right, valign = top },
+		@DigitLocation { top = 5, left = -24, halign = right, valign = center },
+		@DigitLocation { top = 27, left = -32, halign = right, valign = center },
+		@DigitLocation { top = -32, left = -50, halign = right, valign = bottom }
+	    };
+	    modLabel.fontColor <- ownerSkin.labelColor;
+	    modLabel.transparency <- ownerSkin.labelTransparency;
+	    *width = 175;
+	    *height = 175;
+	};
+
+	:SkinLib:Digit digit = nil;
+
+
+	//
+	// Dynamic facia class
+	//
+	// Combos 
+	// max - min = 1 - 7 -> * 10, try again
+	// max - min = 8 -> 7 digits. 1 2 3 4 5 6 7 8 9 
+	// max - min = 9 -> 8 digits.  add one 9 digits.
+	// max - min = 10 -> 9 digits
+	// max - min = 11 -> + 1 = 11 digits.
+	// max - min = 12 ->  = 11 digits.
+	// max - min = 13 -> + 1  = 13 digits.
+	// max - min = 14 ->  = 13 digits.
+	// max - min = 15 + 1 -> 2 step increment (1, 3, 5, 9, 11, 13, 15, 17)
+	// 1 - 1000 / 100 = 999 / 13 = 
+	//
+	// 7 digits, 
+	//  7 eller 8 digits (0 
+	// 9 digits
+	// 
+	// 11 digits
+	//
+	// 13 digits
+	//
+	type DynamicFacia:  :SkinLib:GaugeDDS {
+	    // Used by dynamic scaling
+	    int scale_tick_count[] = { 7, 9, 11, 13 };
+	    float tick_increment[] = { 0.1, 0.2, 0.5, 1.0, 2.0, 4.0, 5.0, 10.0, 20.0, 40.0, 50.0, 100.0, 200.0, 400.0,  500.0, 1000.0  };
+	    event float scaleMin = 0;
+	    event float scaleMax = 0;
+
+	    bool large = false; // Or small gauge?
+	    string digitFormat = "%0.0f";
+	    float  divider = 1.0;
+	    :SkinLib:Manager:Base ownerSkin;
+
+	    script cProfile when cProfile != nil {
+		float min = cProfile.min;
+		float max = cProfile.max;
+		int sc;
+		int s_cand = 0;
+		int i_cand = 0;
+		float scale_strt = 0;
+		float min_rem = max + 1.0;
+		float interval = max - min;
+		string values[] = {};
+		float f_values[] = {};
+		float tmp;
+
+		int ind;
+		children = {};
+
+		//		printf("Profile updated\n");
+		// min_rem tells is how close our maxumym value is to the maximum value of the scale.
+		min_rem = max + 1.0;
+
+		// The interval of our input values.
+		interval = max - min; 
+
+		// Go through all tick count variations.
+		foreach sc in [0 : size(scale_tick_count) - 1] {
+		    int tin;
+
+		    // Go through all increments
+		    foreach tin in [0:size(tick_increment) - 1] {
+			float scale_min = floor(min / tick_increment[tin]) * tick_increment[tin];
+			float scale_max = (scale_tick_count[sc]  - 1) * tick_increment[tin] + scale_min ;
+
+//  			printf("scale[%d] * tick_increment[%0.f] = [%.1f] - [%.1f] - ",
+//  			       scale_tick_count[sc], 
+//  			       tick_increment[tin],
+//  			       scale_min, 
+//  			       scale_max);
+
+			// 
+			// Is the maximum of the scale above our min + interval + one tick_increment?
+			//
+			if (scale_max >= min + interval) {
+			    //printf("scale_max[%.0f] >= max[%.0f] - remainder[%.0f] ", scale_max, max, scale_max - (interval + min));
+			    //
+			    // New candidate?
+			    //
+			    if (scale_max - (interval + min) < min_rem) {
+				min_rem = scale_max - (interval + min);
+				s_cand = sc;
+				i_cand = tin;
+				scale_strt = scale_min;
+
+				//				printf("*");
+			    } 
+			}
+			//			printf("\n");
+		    }
+		}
+
+		// printf("scale_tick_count[%d][%d]\n", s_cand, scale_tick_count[s_cand]);
+		
+		// Build up a f_values containing all tick increments
+		scaleMin = scale_strt;
+		scaleMax = scale_strt + (scale_tick_count[s_cand] - 1) * tick_increment[i_cand];
+		divider = 1.0;
+		//
+		// Check if min/max are four digist or more. If so, we need to divide it by at least ten.
+		//
+		//		printf("min[%f] max[%f]\n", min, max);
+		if (min <= -10000.0 || max >= 10000.0)
+		    divider = 100.0;
+
+		if (min <= -1000.0 || max >= 1000.0)
+		    divider = 10.0;
+
+		//
+		// See if all trailing digits are zero. If so, we can continue
+		// to divide down to we have a 0-9 range.
+		//
+		if (min <= -1000.0 || max >= 1000.0) {
+		    bool inc_div = true; // Should we increase divider?
+		    foreach ind in [1:4] {
+			int s_ind;
+			float cur = scale_strt;
+			foreach s_ind in [0: scale_tick_count[s_cand] - 1] {
+// 			    printf("%f / %f = %f        (cur / divider) / 10.0 = %f/%f ", 
+// 				   cur, divider, cur / divider,
+// 				   (cur / divider) / 10.0,
+// 				   @float((@int(cur) / @int(divider)) / 10));
+
+			    // Shave off zeroes 
+			    if ((cur / divider) / 10.0 != @float((@int(cur) / @int(divider)) / 10))   {
+				//				printf("no div\n");
+				inc_div = false;
+			    } else 
+				//				printf("div\n");
+
+			    cur += tick_increment[i_cand];
+			}
+
+			if (inc_div) {
+			    divider = divider * 10.0;
+// 			    printf("scale[%f]-[%f] dividier[%f]\n", 
+// 				   scale_strt / divider,
+// 				   (scale_strt + tick_increment[i_cand] * scale_tick_count[s_cand]) / divider,
+// 				   divider);
+			}
+		    }
+		}
+		//
+		// If the interval is less than the number of ticks, add decimal to numbers.
+		//
+		if (max - min < scale_tick_count[s_cand])
+		    digitFormat = "%0.1f";
+
+		//		printf("Out of it\n");
+		foreach ind in [0: scale_tick_count[s_cand] - 1] {
+		    float val = scale_strt / divider;
+		    // Bug workaround. Check for int value
+		    values[ind] = sprintf(digitFormat, val);
+
+		    scale_strt += tick_increment[i_cand];
+		}
+
+		//		printf("Dyna: min[%f] max[%f] ScaleMin[%f] scaleMax[%f]\n", min, max, scaleMin, scaleMax);
+
+		switch(scale_tick_count[s_cand]) {
+		case 7:
+		    children[0] = large?@FaciaLarge7Digits{ ownerSkin = ownerSkin, values = values }:@FaciaSmall7Digits{ ownerSkin = ownerSkin, values = values };
+		    break;
+
+		case 9:
+		    children[0] = large?@FaciaLarge9Digits{ ownerSkin = ownerSkin, values = values }:@FaciaSmall9Digits{ ownerSkin = ownerSkin, values = values };
+		    break;
+
+		case 11:
+		    children[0] = large?@FaciaLarge11Digits{ ownerSkin = ownerSkin, values = values }:@FaciaSmall11Digits{ ownerSkin = ownerSkin, values = values };
+		    break;
+
+		case 13:
+		    children[0] = large?@FaciaLarge13Digits{ ownerSkin = ownerSkin, values = values }:@FaciaSmall13Digits{ ownerSkin = ownerSkin, values = values };
+		    break;
+
+		default:
+		    printf("Unknown scale_tick_count[%d]: [%d]\n", s_cand, scale_tick_count[s_cand]);
+		}		    
+
+		if (divider != 1.0)
+		    @FaciaDigits(children[0]).modLabelString = sprintf("x%.0f", divider);
+		else
+		    @FaciaDigits(children[0]).modLabelString = "";
+		
+		//		@FaciaDigits(children[0]).modLabelString <- sprintf("%.0f", gauge.channel.value);
+		// 
+		// Setup new frameStart/framtStop for the needle.
+		// It's somewhat magic, but it works.n
+		//pnn
+//  		printf("frameStart[%f]\n", @FaciaDigits(children[0]).frameStart);
+//  		printf("frameStop[%f]\n", @FaciaDigits(children[0]).frameStop);
+// 		printf("scaleMin[%f]\n", scaleMin);
+// 		printf("scaleMax[%f]\n", scaleMax);
+
+		@TraditionalGauge(@:SkinLib:Manager:Base:Slot:SlotLayer(owner).ownerSlot.gauges.children[0]).frameStart = @FaciaDigits(children[0]).frameStart;
+		@TraditionalGauge(@:SkinLib:Manager:Base:Slot:SlotLayer(owner).ownerSlot.gauges.children[0]).frameStop = @FaciaDigits(children[0]).frameStop;
+		@TraditionalGauge(@:SkinLib:Manager:Base:Slot:SlotLayer(owner).ownerSlot.gauges.children[0]).scaleMin = scaleMin;
+		@TraditionalGauge(@:SkinLib:Manager:Base:Slot:SlotLayer(owner).ownerSlot.gauges.children[0]).scaleMax = scaleMax;
+
+// 		@TraditionalGauge(@:SkinLib:Manager:Base:Slot:InstrumentLayer:InstrumentVariant(gauge).gauge.children[0]).frameStart = 
+// 		      @FaciaDigits(children[0]).frameStart;
+
+// 		@TraditionalGauge(@:SkinLib:Manager:Base:Slot:InstrumentLayer:InstrumentVariant(gauge).gauge.children[0]).frameStop = 
+// 		      @FaciaDigits(children[0]).frameStop;
+
+// 		@TraditionalGauge(@:SkinLib:Manager:Base:Slot:InstrumentLayer:InstrumentVariant(gauge).gauge.children[0]).scaleMin = scaleMin;
+//		@TraditionalGauge(@:SkinLib:Manager:Base:Slot:InstrumentLayer:InstrumentVariant(gauge).gauge.children[0]).scaleMax = scaleMax;
+	    }
+	    script destroy {
+		//		printf("Traditional:DynamicFacia:destroy(): Called\n");
+		if (size(children) > 0 && children[0] != nil)
+		    @FaciaDigits(children[0]).destroy = true;
+	    }
+	};
+
+	//
+	// The background image that is used to specify critical zones.
+	//
+	type CriticalDDS: :SkinLib:GaugeDDS {
+	    event float scaleMin = 0;
+	    event float scaleMax = 0;
+	    event int faciaIndex = 0;
+
+	    script faciaIndex when owner != nil {
+		//		printf("faciuaIndex[%d] sender(%s)\n", faciaIndex, sender(faciaIndex));
+		scaleMin <- @DynamicFacia(owner.children[faciaIndex]).scaleMin;
+		scaleMax <- @DynamicFacia(owner.children[faciaIndex]).scaleMax;
+	    }
+
+
+	    script channel || cProfile || scaleMin || scaleMax when 
+		channel != nil && 
+		cProfile != nil && 
+		scaleMin != scaleMax && 
+		cProfile.max != cProfile.maxCritical {
+		// printf("Setting up critical marks cProfile.maxCritical scaleMin[%f] scaleMax[%f] [%f]\n", scaleMin, scaleMax, cProfile.maxCritical);
+		value = ((scaleMax - cProfile.maxCritical) / (scaleMax - scaleMin)) * 2.65;
+		transparency = 0.7;
+	    }
+
+	    script channel || cProfile || scaleMin || scaleMax when 
+		channel == nil ||
+		cProfile == nil ||
+		scaleMin == scaleMax ||
+		cProfile.max == cProfile.maxCritical {
+		// printf("Not setting up critical marks cProfile.maxCritical scaleMin[%f] scaleMax[%f] \n", scaleMin, scaleMax);
+		value <- nil;
+		*value = 0;
+		transparency = 1.0;
+	    }
+	    transparency = 1.0;
+	};
+	
+	// Bottom
+	type Bottom: SkinLib:GaugeLayer {
+	    script Bottom {
+		// Add critical and facia to end of list.
+		//		printf("Init\n");
+	    }
+	};
+
+
+	//
+	// xxx_critical is the bottom layer of the gauge containing the critical zone, tick marks,
+	// numbers and labels.
+	//
+	// DynamicFacia looks at the min/max value of the current gauge
+	// and adapts the number of tick marks and numbers to get a good scale.
+	//
+	Bottom large_critical = nil; 
+	Bottom small_critical = nil; 
+
+
+	script destroy when destroy {
+	    printf("TraditionalSkin:destroy(): Called\n");
+	    large_templates = nil;
+	    small_templates = nil;
+	    large_critical.gaugeChildren = nil;
+	    large_critical = nil;
+	    small_critical.gaugeChildren = nil;
+	    small_critical = nil;
+	    large_labels.children = nil;
+	    large_labels = nil;
+	    large_gear_labels.children = nil;
+	    large_gear_labels = nil;
+	    small_labels.children = nil;
+	    small_labels = nil;
+	    small_gear_labels.children = nil;
+	    small_gear_labels = nil;
+	    small_labels_no_mod.children = nil;
+	    small_labels_no_mod = nil;
+	    small_needle.gaugeChildren = nil;
+	    small_needle = nil;
+	    large_needle.gaugeChildren = nil;
+	    large_needle = nil;
+
+	    digit = nil;
+	}
+
+	script ~TraditionalSkin {
+	    printf("TraditionalSkin(): Called\n");
+	}
+
+	script TraditionalSkin {
+	    int res_ind;
+	    //	    string @:SkinLib:Manager:Base.name = "traditional";
+	    large_critical = @Bottom {
+		gaugeChildren = { 
+		    @:SkinLib:GaugeDDS {
+			ddsFileFormat = "dds//TRADITIONAL-Standard-Socket1-BigFace%s.dds",
+			transparency = 0.75,
+			useBG = true,
+			top = 50,
+			left = 100
+		    },
+		    @:SkinLib:RedLightDDS {
+			ddsFileFormat = "dds//TRADITIONAL-Standard-Red1-BigFace%s.dds",
+			useBG = true,
+			top = 50,
+			left = 100
+		    },
+		    @:SkinLib:ShiftLightDDS {
+			ddsFileFormat = "dds//TRADITIONAL-Standard-Yellow1-BigFace%s.dds",
+			useBG = true,
+			top = 50,
+			left = 100
+		    },
+		    @CriticalDDS { 
+			ddsFileFormat = "dds/TRADITIONAL-Standard-CriticalRedMark-BigFace.dds",
+			top = 30,
+			left = 193,
+			faciaIndex = 4
+		    },
+		    @DynamicFacia { large = true, ownerSkin = this }
+		}
+	    };
+
+	    small_critical = @Bottom {
+		gaugeChildren = { 
+		    @:SkinLib:GaugeDDS {
+			ddsFileFormat = "dds//TRADITIONAL-Standard-Socket1-SmallFace%s.dds",
+			useBG = true,
+			transparency = 0.75,
+			top = 20,
+			left = 50
+		    },
+		    @:SkinLib:RedLightDDS {
+			ddsFileFormat = "dds//TRADITIONAL-Standard-Red1-SmallFace%s.dds",
+			useBG = true,
+			top = 20,
+			left = 50
+		    },
+		    @:SkinLib:ShiftLightDDS {
+			ddsFileFormat = "dds//TRADITIONAL-Standard-Yellow1-SmallFace%s.dds",
+			useBG = true,
+			top = 20,
+			left = 50
+		    },
+		    @CriticalDDS { 
+			ddsFileFormat = "dds/TRADITIONAL-Standard-CriticalRedMark-SmallFace-.dds", 
+			top = 15,
+			left = 111,
+			faciaIndex = 4
+		    },
+		    @DynamicFacia { large = false, ownerSkin = this }
+		}
+	    };
+
+	    //
+	    // Which gauge profiles do we have available?
+	    //
+	    templates = {
+		//
+		// 640x480
+		//
+		{
+		    // - 00 -
+		    // large dynamic gauge
+		    //
+		    @:SkinLib:GaugeTemplate { digits = digit, bottom = large_critical, gauge = large_needle,  labels = large_labels },
+
+		    // - 01 -
+		    // Small dynamic gauge
+		    //
+		    @:SkinLib:GaugeTemplate {  digits = digit, bottom = small_critical, gauge = small_needle,  labels = small_labels },
+
+		    // - 02 - 
+		    // Large gear position
+		    //
+		    @:SkinLib:GaugeTemplate {
+			digits = @:SkinLib:IntGearDigit {
+			    fontName = "Radio Space Italic",
+			    fontSlant = italic,
+			    digitFormat = "%d",
+			    fontWeight = medium,
+			    fontSize = 68,
+			    top = 0,
+			    left = -5,
+			    width = 278,
+			    height = 278,
+			    halign = center,
+			    valign = center
+			},
+			//underlay = @:SkinLib:GaugeLayer { gaugeChildren = { @FaciaLarge0Digits { ownerSkin = this  } } },
+			gauge = nil,  
+			labels = large_gear_labels
+		    },
+
+		    // - 039 -
+		    // Small gear position
+		    //
+		    @:SkinLib:GaugeTemplate {
+			digits = @:SkinLib:IntGearDigit {
+			    fontName = "Radio Space Italic",
+			    fontSlant = italic,
+			    digitFormat = "%d",
+			    fontWeight = medium,
+			    fontSize = 68,
+			    top = -15,
+			    left = -15,
+			    width = 178,
+			    height = 178,
+			    halign = center,
+			    valign = center
+			},
+			// underlay =  @:SkinLib:GaugeLayer { gaugeChildren = { @FaciaSmall0Digits { ownerSkin = this  } } },
+			gauge = nil,  
+			labels = small_gear_labels
+		    }
+
+		},
+		//
+		// 800x480 
+		//
+		{	
+		}   
+	    };
+
+	    //
+	    // Copy 640x480 templates to 800x480 templates
+	    //
+	    foreach templ_ind in [ 0 : size(templates[res_ind]) - 1 ] {
+		templates[1][templ_ind] = templates[0][templ_ind];
+	    }
+
+	    //
+	    // Patch the needle min/max with the values picked from the templates.
+	    // We need to do this in order to sync the needle correctly against the facia
+	    // digits.
+	    //
+	    foreach res_ind in [ 0 : size(templates) - 1]  {
+		foreach templ_ind in [ 0 : size(templates[res_ind]) - 1] {
+		    if (templates[res_ind][templ_ind].gauge != nil) {
+
+			// We need to create a new version of small_needle and large_needle 
+			// so that we can set the instance's individual frame stop to the 
+			// correct value.
+			//
+			// For some reason copy(small_needle) in the templates constructor list
+			// does not subscribe to the value of the channel.
+			// This works, but is really ugly. Sorry.
+			//
+			if (templates[res_ind][templ_ind].gauge == small_needle) {
+			    templates[res_ind][templ_ind].gauge = @:SkinLib:GaugeLayer {
+				gaugeChildren = { 
+				    @TraditionalGauge { ddsFileFormat = "dds/TRADITIONAL-Standard-%s-SmallNeedle1.dds", frameStop = 0.905, frameStart = 0.095 }, 
+				    @:SkinLib:GaugeDDS { ddsFileFormat = "dds/TRADITIONAL-Standard-%s-CenterKnobSmall.dds", top = 71, left = 69, useBG = true }
+				}
+			    };
+			}
+
+			if (templates[res_ind][templ_ind].gauge == large_needle) {
+			    templates[res_ind][templ_ind].gauge = @:SkinLib:GaugeLayer {
+				gaugeChildren = {
+				    @TraditionalGauge { ddsFileFormat = "dds/TRADITIONAL-Standard-%s-BigNeedle1.dds", frameStop = 0.897, frameStart = 0.101 },
+				    @:SkinLib:GaugeDDS { ddsFileFormat = "dds/TRADITIONAL-Standard-%s-CenterKnob.dds", top = 118, left = 117, useBG = true }
+				}
+			    };
+			}
+			//
+			// Set the minimum to the gauge's original frame start, which is a couple of pixels before the first marker 
+			//
+// 			templates[res_ind][templ_ind].gauge.gaugeChildren[0].frameStop =
+// 			    @FaciaDigits(templates[res_ind][templ_ind].underlay.gaugeChildren[0]).frameStop;
+
+// 			templates[res_ind][templ_ind].gauge.gaugeChildren[0].frameStart = 
+//			    @FaciaDigits(templates[res_ind][templ_ind].underlay.gaugeChildren[0]).frameStart;
+		    }
+		}
+	    }
+
+	    slots = { 
+		//
+		// 640x480 slot placements
+		//
+		{
+		    // 640x480  - Large upper left
+		    @:SkinLib:Manager:Base:Slot { // 
+			owner = this,
+			height = 280, 
+			width = 280,
+			top = 8, 
+			left = 10,
+			usedTemplates = large_templates
+		    },
+		    // 640x480  - Large upper right
+		    @:SkinLib:Manager:Base:Slot { // 
+			owner = this,
+			height = 280, 
+			width = 280,
+			top = 7, 
+			left = 350,
+			usedTemplates = large_templates
+		    },
+		    // 640x480  - Small lower left 
+		    @:SkinLib:Manager:Base:Slot { // 
+			owner = this,
+			height = 166, 
+			width = 166,
+			top = 299, 
+			left = 68,
+			usedTemplates = small_templates
+		    },
+		    // 640x480  - Small center 
+		    @:SkinLib:Manager:Base:Slot { // 
+			owner = this,
+			height = 166, 
+			width = 166,
+			top = 226, 
+			left = 237,
+			usedTemplates = small_templates
+		    },
+		    // 640x480  - Small lower right
+		    @:SkinLib:Manager:Base:Slot { // 
+			owner = this,
+			height = 169, 
+			width = 166,
+			top = 299, 
+			left = 407,
+			usedTemplates = small_templates
+		    }
+
+		},
+		//
+		// 800x480 slot placements.
+		//
+		{
+		    // 800x480  - Large upper left
+		    @:SkinLib:Manager:Base:Slot { // 
+			owner = this,
+			height = 275, 
+			width = 275,
+			top = 19, 
+			left = 25,
+			usedTemplates = large_templates
+		    },
+		    // 800x480  - Large upper right
+		    @:SkinLib:Manager:Base:Slot { // 
+			owner = this,
+			height = 275, 
+			width = 275,
+			top = 19, 
+			left = 496,
+			usedTemplates = large_templates
+		    },
+		    // 800x480  - Small lower left 
+
+		    @:SkinLib:Manager:Base:Slot { // 
+			owner = this,
+			height = 175, 
+			width = 175,
+			top = 288, 
+			left = 202,
+			usedTemplates = small_templates
+		    },
+		    // 800x480  - Small center 
+		    @:SkinLib:Manager:Base:Slot { // 
+			owner = this,
+			height = 175, 
+			width = 175,
+			top = 134, 
+			left = 317,
+			usedTemplates = small_templates
+		    },
+		    // 800 x480  - Small lower right
+		    @:SkinLib:Manager:Base:Slot { // 
+			owner = this,
+			height = 175, 
+			width = 175,
+			top = 288, 
+			left = 432,
+			usedTemplates = small_templates
+		    }
+		}
+	    };
+	    skinUnderlay = :GUI:MenuEnabledLayer  {
+		children = {
+		    :SkinLib:ResMaterialDDS { 
+			top = 0, 
+			left = 0,
+			transparency = 0,
+			ddsFileFormat = "dds/TRADITIONAL-%s-%s-Background.dds"
+		    }
+		},
+		top = 0,
+		left = 0,
+		width <- .ScreenLib.xRes,
+		height <- .ScreenLib.yRes,
+		transparency = 0,
+		wantFocus = true
+	    };
+	    skinOverlay = Layer  {
+		children = {
+		    //    		:SkinLib:ResMaterialDDS { 
+		    //    		    top = 0, 
+		    //   		    left = 0,
+		    //    		    transparency = 0,
+		    //    		    ddsFileFormat = "dds/TRADITIONAL-%s-%s-CentKnob.dds"
+		    //    		}
+		    // 		,
+		    :SkinLib:ResMaterialDDS { 
+			top = 0, 
+			left = 0,
+			transparency = 0,
+			ddsFileFormat = "dds/TRADITIONAL-%s-%s-HiLiteLayer.dds"
+		    },
+		    :SkinLib:ResMaterialDDS { 
+			top  <- (.ScreenLib.xRes == 800?0:-35), 
+			left <- (.ScreenLib.xRes / 2 - 115),
+			transparency = 0,
+			ddsFileFormat = "dds/TRADITIONAL-%s-%s-Logo.dds"
+		    }
+		}
+	    
+	    };
+	}
+    };
+
+    
+    //
+    // Constructor for library
+    //
+    type TraditionalSkinProducer: :SkinLib:Manager:Producer {
+	// Procue a new skin and assign it to manager
+	script produce when produce {
+	    //	    printf("TraditionalSkinProducer::produce(): called from %s\n", sender(produce));
+	    produce = false;
+	    manager.skin = @TraditionalSkin { 
+		name = ident.text, 
+		faciaColors = {
+		    @:SkinLib:FaciaColor { value = 1, text = "green", labelColor = 0x3EF832, digitColor = 0x3EF832 },
+		    @:SkinLib:FaciaColor { value = 2, text = "orange", labelColor = 0xFF7F00, digitColor =0xFF7F00 },
+		    @:SkinLib:FaciaColor { value = 3, text = "white", labelColor = 0xDFDFDF, digitColor = 0xDFDFDF },
+		    @:SkinLib:FaciaColor { value = 4, text = "blue", labelColor = 0x2B6EF6, digitColor = 0x2B6EF6 },
+		    @:SkinLib:FaciaColor { value = 5, text = "red", labelColor = 0xFF0000, digitColor = 0xFF0000 },
+		    @:SkinLib:FaciaColor { value = 6, text = "black", labelColor = 0x101010, digitColor = 0x101010 }
+		},
+
+		fgMaterials = {
+		    @:SkinLib:Material { value = 1, fileNameComponent = "PlainOrange", text = "orange" },
+		    @:SkinLib:Material { value = 2, fileNameComponent = "Green1", text = "green" },
+		    @:SkinLib:Material { value = 3, fileNameComponent = "Blue1", text = "blue" },
+		    @:SkinLib:Material { value = 4, fileNameComponent = "Red1", text = "red" },
+		    @:SkinLib:Material { value = 5, fileNameComponent = "White1", text = "white" }
+		},
+		bgMaterials = {
+		    @:SkinLib:Material { value = 1, fileNameComponent = "BlackPlastic1", text = "black matte" },
+		    @:SkinLib:Material { value = 2, fileNameComponent = "WhiteGauge1", text = "pearl white" },
+		    @:SkinLib:Material { value = 3, fileNameComponent = "CarbonFiber1", text = "carbon fibre" },
+		    @:SkinLib:Material { value = 4, fileNameComponent = "Alum1", text = "aluminium" },
+		    @:SkinLib:Material { value = 5, fileNameComponent = "HighContrast1", text = "contrast" }
+		}
+	    };
+	}
+    };
+
+    //
+    // Init script to install tb_blue in Screen.
+    //
+    .SkinLib.manager.producers += @TraditionalSkinProducer {
+	ident = :GUI:Option { text = "traditional", value = 0 } 
+    };
+
+}

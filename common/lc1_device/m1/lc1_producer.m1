@@ -1,0 +1,50 @@
+// -*- c++ -*-
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007, 2008.
+//
+
+//
+// Producer code that is triggered when a USB device is inserted.
+// Also triggered during startup by all existing USB devices.
+//
+library LC1ProdLib {
+
+    //
+    // An producer
+    //
+    type M1LC1DeviceProd: DeviceHandlerProducer {
+	:ADLib:Device collection[] = {};
+
+	script trigger when action == "add" { 
+	    printf("M1LC1DeviceProd::add(%s): product[%s] serial[%s]\n",
+		   devicePath, product, serial);
+	    collection += @:LC1Lib:M1LC1Device { device = devicePath, serial=serial, product=product };
+	}
+
+	script trigger when action == "remove" {
+	    :ADLib:Device ind;
+	    :ADLib:Device del[] = {};
+
+	    foreach ind in collection {
+		if (ind.device == devicePath)  
+		    del += ind;
+	    }
+
+	    collection -= del;
+	}
+    };
+
+    //
+    // Register a producer with the core usb prodcucer.
+    //
+    .ADManager.usbManager.producers += @M1LC1DeviceProd {
+	productPattern="M1/LC1", // This is really the only thing we need to trigger on.
+	manufacturerPattern="",
+	serialPattern="",
+	vendorIDPattern=0,
+	productIDPattern=0,
+	collection = .ADManager.usbDevices
+    };
+}

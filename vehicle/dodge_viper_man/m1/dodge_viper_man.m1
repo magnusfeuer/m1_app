@@ -1,0 +1,45 @@
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+//
+// Add a Dodge Viper application
+//
+int ind = size(.EngineBaseLib.engine.vehicleProfiles);
+
+type DodgeViperManualProfile: :EngineBaseLib:VehicleProfile {
+    make = "Dodge";
+    model = "Viper";
+    startYear = 2008;
+    stopYear = 0; //
+    gearType = 1; // Manual
+    curbWeight = 1635; // Curb weight + driver. kg
+    length = 446; // Cm
+    width = 190;
+    height = 121;
+    wheelBase = 0;
+    displacement = 840; // cubic centimetres. 
+    imageFile = "dds/dodge_viper.png";
+    obdIIProtocol = 0;
+    
+    cylinders = 10;
+    cylinderConfig = 2; // V engine.
+
+    gearCount = 6;
+    chanProf[.EC.rpm].max = 7000; 
+    chanProf[.EC.rpm].maxWarn = 5500;    
+    chanProf[.EC.rpm].maxCritical = 6000;   
+
+    tireWidth = 345;
+    tireSidewallRatio = 30;
+    tireRimDiameter = 19;
+};
+
+.EngineBaseLib.engine.vehicleProfiles[ind] = @DodgeViperManualProfile {};
+
+
+// Init current vehicle profile if necessary.
+if (.EngineBaseLib.engine.currentVehicleProfile == -1)
+    .EngineBaseLib.engine.currentVehicleProfile = 0;

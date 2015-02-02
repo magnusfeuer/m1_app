@@ -1,0 +1,43 @@
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+//
+// Honda Civic 
+//
+int ind = size(.EngineBaseLib.engine.vehicleProfiles);
+
+type HondaCivicMan: :EngineBaseLib:VehicleProfile {
+    make = "Honda";
+    model = "Civic";
+    imageFile = "dds/honda_civic.png";
+    startYear = 2006;
+    stopYear = 0; // Unknown.
+    gearType = 1; // manual`
+    curbWeight = 1306; // Curb weight + driver.
+    length = 445; // In cm.
+    width = 175 ;
+    height = 136;
+    wheelBase = 265;
+    displacement = 180; // cubic centimetres. 
+    cylinders = 4;
+    cylinderConfig = 1; // Inline
+    obdIIProtocol = 0; // ISO9141 preset does not yet work.
+    gearCount = 5;
+    chanProf[.EC.rpm].max = 8000;    
+    chanProf[.EC.rpm].maxWarn = 6500;    
+    chanProf[.EC.rpm].maxCritical = 6800;   
+
+    tireWidth = 205;
+    tireSidewallRatio = 55;
+    tireRimDiameter = 16;
+
+};
+
+.EngineBaseLib.engine.vehicleProfiles[ind] = @HondaCivicMan {};
+
+if (.EngineBaseLib.engine.currentVehicleProfile == -1)
+    .EngineBaseLib.engine.currentVehicleProfile = 0;
+

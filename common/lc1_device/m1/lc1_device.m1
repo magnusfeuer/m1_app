@@ -1,0 +1,85 @@
+// -*- c++ -*-
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007, 2008.
+//
+
+//
+// High level logic for the Innovate LC1 device.
+//
+library LC1Lib {
+    //
+    // An ADDevice with a number of AD channels.
+    //
+    int lc1_offset = size(.ADLib.sensorTypes);
+    int lc1_lambda = 0 + lc1_offset;
+
+
+    type M1LC1Channel: :ADLib:Device:Channel {
+	LC1Device rawDevice; // C++ class
+	int currentChannel = -1;
+
+	//
+	// The sensor or engine channel we use has been updated. Setup the engine channel
+	//
+	script sensorType || engineChannel when sensorType != -1 && index != 6 && engineChannel != -1{
+	    .EngineBaseLib.engine.channels[engineChannel].value <- rawDevice.lam;
+	    //
+	    // Disable support of old channel
+	    //
+	    if (currentChannel != -1) {
+		printf("LC1Channel[%d/%d]: Disabling support for [%s]\n", 
+		       index, currentChannel, .EngineBaseLib.engine.channels[currentChannel].descriptor.name);
+
+		.EngineBaseLib.engine.channels[currentChannel].supported = false;
+	    }
+	    // Enable support of new channel.
+	    printf("LC1Channel[%d]: Enabling support for [%s]\n", index,  .EngineBaseLib.engine.channels[engineChannel].descriptor.name);
+	    .EngineBaseLib.engine.channels[engineChannel].supported = true;
+	    currentChannel = engineChannel;
+	}
+
+	// Constructor.
+	script M1LC1Channel {
+	    // Subscribe to if the sensor we use has been updated.
+	    sensorType <- sensorTypeDB.value;
+	    engineChannel <- engineLabelDB.value;
+	    *sensorType = sensorTypeDB.value; // Trigger sensor script
+	}
+    };
+    
+    //
+    // Objects of this type is created by the DeviceManager/M1LC1DeviceProd 
+    // in lc1_producer.m1 and ad_manager.m1
+    //
+    type M1LC1Device: :ADLib:Device {
+	LC1Device rawDevice = @LC1Device { port = device };
+
+	script M1LC1Device {
+	    channels = {
+		@M1LC1Channel { 
+		    owner = this,
+		    index = 1, 
+		    name = "air/fuel ratio",
+		    rawDevice = rawDevice, 
+		    sensorTypes = {
+			.ADLib.unused, 
+			lc1_lambda 
+		    }
+		}
+	    };
+	}
+    };
+    
+    //
+    // Library loader constructor code
+    //
+    script LC1Lib {
+	// 0 - Lambda. 
+	.ADLib.sensorTypes += @:ADLib:SensorType { 
+	    name = "active",
+	    engineChannels = { .EC.lam_1_1_l, .EC.lam_1_2_l, .EC.lam_2_1_l, .EC.lam_2_2_l }
+	};
+    }
+}

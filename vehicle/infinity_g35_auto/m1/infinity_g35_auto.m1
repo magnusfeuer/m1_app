@@ -1,0 +1,45 @@
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+//
+// Add a Infiniti G35 application
+//
+int ind = size(.EngineBaseLib.engine.vehicleProfiles);
+
+type InfinitiG35AutoProfile: :EngineBaseLib:VehicleProfile {
+    make = "Infiniti";
+    model = "G35";
+    startYear = 2003;
+    stopYear = 2007; //
+    gearType = 2;
+    curbWeight = 1630; // Curb weight + driver.
+    length = 463; // Cm
+    width = 181;
+    height = 139;
+    wheelBase = 0;
+    displacement = 350; // cubic centimetres. 
+    imageFile = "dds/infinity_g35.png";
+
+    gearCount = 5;
+    tireWidth=245;
+    tireRimDiameter=18;
+    tireSidewallRatio=45;
+    
+    cylinders = 6;
+    cylinderConfig = 2; // V engine.
+    obdIIProtocol = 0; // ISO9141 preset does not yet work.
+
+    chanProf[.EC.rpm].max = 8000; 
+    chanProf[.EC.rpm].maxWarn = 6250;    
+    chanProf[.EC.rpm].maxCritical = 6500;   
+};
+
+.EngineBaseLib.engine.vehicleProfiles[ind] = @InfinitiG35AutoProfile {};
+
+
+// Init current vehicle profile if necessary.
+if (.EngineBaseLib.engine.currentVehicleProfile == -1)
+    .EngineBaseLib.engine.currentVehicleProfile = 0;

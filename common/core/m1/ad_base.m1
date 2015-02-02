@@ -1,0 +1,74 @@
+// -*- c++ -*-
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007, 2008.
+//
+
+library ADLib {
+    
+    //
+    // A sensor type with normalization map
+    //
+    type SensorType {
+	string name;     // Name of sensor
+	unsigned int sampleInterval;    // Sample interval in msec.
+	ScalarInterpolator map; // Map AD raw input values to output
+	int engineChannels[]; // Allowed channels (from .EC.xxx) to use as a label for this sensor
+    };
+
+    //
+    // All sensor types known by the system
+    // The following sensor groups can be used by a channel.
+    //
+    SensorType sensorTypes[] = {
+	// Unused
+	@SensorType {  // 0
+	    name = "inactive",
+	    map = @ScalarInterpolator { 
+		key = {}, 
+		keyValue = {} 
+	    }, 
+	    sampleInterval = 0,
+	    engineChannels = { }
+	}
+    };
+
+    //
+    // Symbolic indexes into sensorTypes o be used by external code.
+    //
+    const int unused = 0;
+
+    // General AD device
+    type Device {
+	string deviceType;  // Type of AD device (ZT2 etc)
+	string id;    // ID of this specific AD device (to be displayedO)
+	string device;
+	string serial;
+	string product;
+
+	//
+	// Generic AD Channel inherited and extended by
+	// various AD device subclasses.
+	//
+	type Channel {
+	    string name;
+	    int index;  // Index in owner.channels[] that is self.
+	    Device owner;
+	    int sensorTypes[] = {}; // Supported sensor types by this channel.
+	    event int sensorType; // Current index into sensorTypes.
+	    event int engineChannel;  // Currnet engine channel that this channel is tied to.
+	    Psigned sensorTypeDB = nil;
+	    Psigned engineLabelDB = nil;
+
+	    script Channel {
+		// Cannot be initialized in declaration due to bug46.m1
+		sensorTypeDB = @Psigned { key = sprintf("core.ad.%s.%d.sensor", owner.serial, index), value = -1 };
+		engineLabelDB = @Psigned { key = sprintf("core.ad.%s.%d.eng_label", owner.serial, index), value = -1 };
+	    }
+
+	};
+
+	Channel channels[] = {};
+    };
+}

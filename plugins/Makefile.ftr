@@ -1,0 +1,18 @@
+#
+# Footer include for all plugin makefiles
+#
+
+$(TARGET_DIR)/$(TARGET): $(OBJ) 
+	$(CXX) $(CXXFLAGS) $(LFLAGS) -o $(TARGET_DIR)/$(TARGET) $(OBJ)
+
+ifneq "$(DEBUG)" "1"
+	strip $(SFLAGS) $(TARGET_DIR)/$(TARGET)
+endif
+
+$(OBJ):	$(HDR)
+
+clean:
+	rm -f $(TARGET_DIR)/$(TARGET) $(OBJ)
+
+spotless:
+	rm -rf $(TARGET_DIR)/$(TARGET) $(OBJ) *~ 

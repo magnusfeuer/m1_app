@@ -1,0 +1,43 @@
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+//
+// Mazdaspeed 3
+//
+int ind = size(.EngineBaseLib.engine.vehicleProfiles);
+
+type MazdaSpeed3: :EngineBaseLib:VehicleProfile {
+    make = ""; // Make and model is concatinated by Mazda.
+    model = "Mazdaspeed3";
+    imageFile = "dds/mazda_speed3.png";
+    startYear = 2007;
+    stopYear = 0; // Unknown.
+    gearType = 1; // manual
+    curbWeight = 1510; // Curb weight + driver in kg.
+    length = 449; // In cm.
+    width = 176;
+    height = 146;
+    wheelBase = 264;
+    displacement = 230; // cubic centimetres. 
+    cylinders = 4;
+    cylinderConfig = 1; // V engine.
+    obdIIProtocol = 0; // ISO9141 preset does not yet work.
+
+    gearCount = 6;
+    tireWidth = 215;
+    tireSidewallRatio = 45;
+    tireRimDiameter = 18;
+
+    chanProf[.EC.rpm].max = 8000;    
+    chanProf[.EC.rpm].maxWarn = 6250;    
+    chanProf[.EC.rpm].maxCritical = 6500;   
+};
+
+.EngineBaseLib.engine.vehicleProfiles[ind] = @MazdaSpeed3 {};
+
+if (.EngineBaseLib.engine.currentVehicleProfile == -1)
+    .EngineBaseLib.engine.currentVehicleProfile = 0;
+

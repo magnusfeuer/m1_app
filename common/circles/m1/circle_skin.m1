@@ -1,0 +1,875 @@
+// -*- c++ -*-
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+//
+// The CIRCLE  screen is organized as follows
+//
+library CircleSkinLib {
+
+
+    type CircleDDS: :SkinLib:GaugeDDS {
+    };
+
+    //
+    // The background image that is used to specify critical zones.
+    //
+    type CriticalDDS: :SkinLib:GaugeDDS {
+	script channel || cProfile when channel != nil && cProfile != nil && cProfile.max - cProfile.maxCritical > 0 {
+	    value = ((cProfile.max - cProfile.maxCritical) / cProfile.max) * 2;
+	    transparency = 0.6;
+	    value <- nil;
+	}
+
+	script channel || cProfile when channel != nil && cProfile != nil && cProfile.max - cProfile.maxCritical == 0 {
+	    transparency = 1.0;
+	}
+	transparency = 1.0;
+    };
+
+    type CircleSkin :SkinLib:Manager:Base {
+	int small_templates[] =  {
+	    // 1-18
+	    10, // rpm = 0;
+	    10, // map_mbar = 1;
+	    -1, // 12, // map_psi = 2;
+	    -1, // 13, // map_mbarcm = 3;
+	    13, // map_psiin = 4;
+	    8, // kph = 5;
+	    8, // mph = 6;
+	    -1, //10, // trim_1 = 7;
+	    -1, //10, // trim_2 = 8;
+	    15, //8, // lam_1_1_l = 9;
+	    15, //14, // lam_1_1_a = 10;
+	    15, //14, // lam_1_1_v = 11;
+	    15, //8, // lam_1_2_l = 12;
+	    15, //14, // lam_1_2_a = 13;
+	    15, //14, // lam_1_2_v = 14;
+	    15, //8, // lam_2_1_l = 15;
+	    15, //14, // lam_2_1_a = 16;
+	    15, //14, // lam_2_1_v = 17;
+	    15, //8, // lam_2_2_l = 18;
+	    15, //14, // lam_2_2_a = 19
+	    15, //14, // lam_2_2_v = 20
+	    -1, //8, // load  = 21;
+	    8, // ect_c = 22;
+	    8, // ect_f = 23;
+	    8, // iat_c = 24;
+	    8, // iat_f = 25;
+	    8, // aat_c = 26;
+	    8, // aat_f = 27;
+	    8, //8, // eot_c = 28;
+	    8, //8, // eot_f  = 29;
+	    12, // vbat = 30;
+	    9, // ign_adv = 31; 
+	    8, // maf_g = 32;
+	    14, // maf_o = 33;  
+	    10, // absolute tps = 34;  
+	    10, // Relative TPS 35
+	    10, // fp_mbar = 36;
+	    12, // fp_psi = 37;
+	    8, // fuel_lev  = 38;
+	    10, //10, // bap_mbar = 39;
+	    12, //12, // bap_psi = 40;
+	    8, //8, // hp =41; 
+	    8, //8, // torque_nm = 42;
+	    8, //8, // torque_lbft = 43  
+	    17, //8, // gear = 44;
+	    -1, //13, // lp100k = 45; 10, // Litres per 100 km. = ;
+	    12, //12, // mpg = 46;      
+	    11, //10 // gforce = 47; 10, // in milliG = ;
+	    10, // eop_mbar 48 Engine oil pressure mbar
+	    12, // eop_psi 49 Engine oil pressure psi
+	    10, // egt1_c 50 Exhaust gas temp C
+	    10, // egt1_f 51 Exhaust gas temp F
+	    10, // egt2_c 52 Exhaust gas temp C
+	    10, // egt2_f 53 Exhaust gas temp F
+	    10, // egt3_c 54 Exhaust gas temp C
+	    10, // egt3_f 55 Exhaust gas temp F
+	    10, // egt4_c 56 Exhaust gas temp C
+	    10, // egt4_f 57 Exhaust gas temp F
+	    10, // egt5_c 58 Exhaust gas temp C
+	    10, // egt5_f 59 Exhaust gas temp pF
+	    10, // egt6_c 60 Exhaust gas temp C
+	    10, // egt6_f 61 Exhaust gas temp F
+	    10, // egt7_c 62 Exhaust gas temp C
+	    10, // egt7_f 63 Exhaust gas temp F
+	    10, // egt8_c 64 Exhaust gas temp C
+	    10, // egt8_f 65 Exhaust gas temp F
+	    10, // bip_mbar 66 Pre intercooler pressure.
+	    13, // bip_psi 67 Pre intercooler pressure.
+	    10, // aip_mbar 68  Post intercooler pressure.
+	    13, // aip_psi 69 Post intercooler pressure.
+	    10, // ccp_mbar 70 Crank case pressure.
+	    12, // ccp_psi 71 Crank case pressure.
+	    10, // wp_mbar 72 Water pressure
+	    12, // wp_psi 73 Water pressure
+	    8, // fdt_c 74 Front Diff Temp
+	    8, // fdt_f 75 Front Diff Temp
+	    8, // rdt_c 76 Rear Diff Temp
+	    8, // rdt_f 77 Rear Diff Temp
+	    8, // cdt_c 78 Center Diff Temp
+	    8, // cdt_f 79 Center Diff Temp
+	    8, // gbt_c 80 Gear box temp
+	    8, // gbt_f 81 Gear box temp
+	    8, // bit_c 82 Before indtercooler temp.
+	    8, // bit_f 83 Before intercooler temp.
+	    8, // ait_c 84 After intercooler temp.
+	    8, // ait_f 85 After intercooler temp.
+	    8, // ft_c 86 Fuel temp
+	    8, // ft_f 87 Fuel temp.
+	    -1,  // latency 88 ECU latency.
+	    8 // Fuel pulse width, 89
+	};
+
+	int large_templates[] =  {
+	    // 1-18
+	    
+	    2, // rpm = 0;
+	    2, // map_mbar = 1;
+	    -1, // 4, // map_psi = 2;
+	    -1, // 5, // map_mbarcm = 3;
+	    5, // map_psiin = 4;
+	    0, // kph = 5;
+	    0, // mph = 6;
+	    -1, // 2, // trim_1 = 7;
+	    -1, // trim_2 = 8;
+	    7, //  0, // lam_1_1_l= 9;
+	    7, // 6, // lam_1_1_a = 10;
+	    7, // 6, // lam_1_1_v = 10;
+	    7, // 0, // lam_1_2_l = 11;
+	    7, // 6, // lam_1_2_a = 12;
+	    7, // 6, // lam_1_2_v = 12;
+	    7, // 0, // lam_2_1_l = 13;
+	    7, // 6, // lam_2_1_a = 14;
+	    7, // 6, // lam_2_1_v = 14;
+	    7, // 0, // lam_2_2_l = 15;
+	    7, // 6, // lam_2_2_a = 16;
+	    7, // 6, // lam_2_2_v = 16;
+	    -1, // 0, // load  = 17;
+	    0, // ect_c = 18;
+	    0, // ect_f = 19;
+	    0, // iat_c = 20;
+	    0, // iat_f = 21;
+	    0, // 0, // aat_c = 22;
+	    0, // 0, // aat_f = 23;
+	    0, // 0, // eot_c = 24;
+	    0, // 0, // eot_f  = 25;
+	    4, // vbat = 26;
+	    1, // ign_adv = 27; 
+	    0, // maf_g = 28;
+	    6, // maf_o = 29;  
+	    0, // absolute tps = 30;  
+	    0,  // relative TPS
+	    2, // fp_mbar = 31;
+	    4, // fp_psi = 32;
+	    0, // fuel_lev  = 33;
+	    2, // 2, // bap_mbar = 34;
+	    4, // 4, // bap_psi = 35;
+	    0, // 0, // hp =36; 
+	    0, // 0, // torque_nm = 37;
+	    0, // 0, // torque_lbft = 38; 
+	    16, // 0, // gear = 39;
+	    -1, // 5, // lp100k = 40; 10, // Litres per 100 km. = ;
+	    4, // 4, // mpg = 41;      
+	    3, // 2 // gforce 42; 10, // in milliG ;
+	    2, // eop_mbar 43 Engine oil pressure mbar
+	    4, // eop_psi 44 Engine oil pressure psi
+	    2, // egt1_c 45 Exhaust gas temp C
+	    2, // egt1_f 46 Exhaust gas temp F
+	    2, // egt2_c 47 Exhaust gas temp C
+	    2, // egt2_f 48 Exhaust gas temp F
+	    2, // egt3_c 49 Exhaust gas temp C
+	    2, // egt3_f 50 Exhaust gas temp F
+	    2, // egt4_c 51 Exhaust gas temp C
+	    2, // egt4_f 52 Exhaust gas temp F
+	    2, // egt5_c 53 Exhaust gas temp C
+	    2, // egt5_f 54 Exhaust gas temp pF
+	    2, // egt6_c 55 Exhaust gas temp C
+	    2, // egt6_f 56 Exhaust gas temp F
+	    2, // egt7_c 57 Exhaust gas temp C
+	    2, // egt7_f 58 Exhaust gas temp F
+	    2, // egt8_c 59 Exhaust gas temp C
+	    2, // egt8_f 60 Exhaust gas temp F
+	    2, // bip_mbar 61 Pre intercooler pressure.
+	    5, // bip_psi 62 Pre intercooler pressure.
+	    2, // aip_mbar 631 Post intercooler pressure.
+	    5, // aip_psi 64 Post intercooler pressure.
+	    2, // ccp_mbar 65 Crank case pressure.
+	    5, // ccp_psi 66 Crank case pressure.
+	    2, // wp_mbar 67 Water pressure
+	    4, // wp_psi 68 Water pressure
+	    0, // fdt_c 69 Front Diff Temp
+	    0, // fdt_f 70 Front Diff Temp
+	    0, // rdt_c 71 Rear Diff Temp
+	    0, // rdt_f 72 Rear Diff Temp
+	    0, // cdt_c 73 Center Diff Temp
+	    0, // cdt_f 74 Center Diff Temp
+	    0, // gbt_c 75 Gear box temp
+	    0, // gbt_f 76 Gear box temp
+	    0, // bit_c 77 Before indtercooler temp.
+	    0, // bit_f 78 Before intercooler temp.
+	    0, // ait_c 79 After intercooler temp.
+	    0, // ait_f 80 After intercooler temp.
+	    0, // ft_c 81 Fuel temp
+	    0, // ft_f 82 Fuel temp.
+	    -1, // latency 83 ECU latency.
+	    0 // Fuel pulse width,
+	};
+
+	:SkinLib:Digit small_digit_int_4 = @:SkinLib:IntDigit {
+	    fontName = "Radio Space Italic",
+	    fontSlant = italic,
+	    digitFormat = "%4d",
+// 	    fontName = "BankGothic Md BT",
+	    fontWeight = medium,
+ 	    fontSize = 28,
+	    glyphFixedWidth = 23,
+	    top = 0,
+	    left = -5,
+	    width = 178,
+	    height = 178,
+	    halign = center,
+	    valign = center
+	};
+
+	:SkinLib:Digit small_digit_int_3 = @:SkinLib:IntDigit {
+	    digitFormat = "%3d",
+	    fontName = "Radio Space Italic",
+	    fontSlant = italic,
+//	    fontName = "BankGothic Md BT",
+	    fontWeight = medium,
+	    glyphFixedWidth = 27,
+	    fontSize = 32,
+	    top = 0,
+	    left = -4,
+	    width = 178,
+	    height = 178,
+	    halign = center,
+	    valign = center
+	};
+
+
+	// Used for gear position
+	:SkinLib:Digit small_digit_int_blank_zero_1 = @:SkinLib:IntGearDigit {
+	    digitFormat = "%1d",
+	    fontName = "Radio Space Italic",
+	    fontSlant = italic,
+//	    fontName = "BankGothic Md BT",
+	    fontWeight = medium,
+//	    glyphFixedWidth = 27,
+	    fontSize = 36,
+	    top = 0,
+	    left = -4,
+	    width = 178,
+	    height = 178,
+	    halign = center,
+	    valign = center
+	};
+
+	:SkinLib:Digit small_digit_float_2_1 = @:SkinLib:FloatDigit {
+	    digitFormat = "%2.1f",
+	    fontName = "Radio Space Italic",
+	    fontSlant = italic,
+//	    fontName = "BankGothic Md BT",
+	    fontWeight = medium,
+	    fontSize = 28,
+	    glyphFixedWidth = 23,
+	    glyphDotKerning = -5,
+	    top = 0,
+	    left = -5,
+	    width = 178,
+	    height = 178,
+	    halign = center,
+	    valign = center
+	};
+
+	:SkinLib:Digit small_abs_digit_float_2_1 = @:SkinLib:FloatAbsoluteDigit {
+	    fontName = "Radio Space Italic",
+	    fontSlant = italic,
+	    digitFormat = "%2.1f",
+//	    fontName = "BankGothic Md BT",
+	    fontWeight = medium,
+	    fontSize = 28,
+	    glyphFixedWidth = 23,
+	    glyphDotKerning = -5,
+	    top = 0,
+	    left = -5,
+	    width = 178,
+	    height = 178,
+	    halign = center,
+	    valign = center
+	};
+
+	:SkinLib:Digit small_digit_float_1_2 = @:SkinLib:FloatDigit {
+	    fontName = "Radio Space Italic",
+	    fontSlant = italic,
+	    digitFormat = "%1.2f",
+//	    fontName = "BankGothic Md BT",
+	    fontWeight = medium,
+	    fontSize = 28,
+	    glyphFixedWidth = 23,
+	    glyphDotKerning = -5,
+	    top = 0,
+	    left = -5,
+	    width = 178,
+	    height = 178,
+	    halign = center,
+	    valign = center
+	};
+
+	:SkinLib:Digit large_digit_int_4 = @:SkinLib:IntDigit {
+	    fontName = "Radio Space Italic",
+	    fontSlant = italic,
+	    digitFormat = "%4d",
+//	    fontName = "BankGothic Md BT",
+	    fontWeight = medium,
+	    fontSize = 42,
+	    top = 0,
+	    glyphFixedWidth = 36,
+	    glyphDotKerning = -5,
+	    left = -5,
+	    width = 278,
+	    height = 278,
+	    halign = center,
+	    valign = center
+	};
+
+	:SkinLib:Digit large_digit_int_3 = @:SkinLib:IntDigit {
+	    fontName = "Radio Space Italic",
+	    fontSlant = italic,
+	    digitFormat = "%3d",
+//	    fontName = "BankGothic Md BT",
+	    fontWeight = medium,
+	    fontSize = 46,
+	    glyphFixedWidth = 37,
+	    glyphDotKerning = -5,
+	    top = 0,
+	    left = -18,
+	    width = 278,
+	    height = 278,
+	    halign = center,
+	    valign = center
+	};
+
+	// Used for gear position.
+	:SkinLib:Digit large_digit_int_blank_zero_1 = @:SkinLib:IntGearDigit {
+	    fontName = "Radio Space Italic",
+	    fontSlant = italic,
+	    digitFormat = "%d",
+//	    fontName = "BankGothic Md BT",
+	    fontWeight = medium,
+	    fontSize = 68,
+	    top = 0,
+	    left = -18,
+	    width = 278,
+	    height = 278,
+	    halign = center,
+	    valign = center
+	};
+
+	:SkinLib:Digit large_digit_float_2_1 = @:SkinLib:FloatDigit {
+	    fontName = "Radio Space Italic",
+	    fontSlant = italic,
+	    digitFormat = "%2.1f",
+//	    fontName = "BankGothic Md BT",
+	    fontWeight = medium,
+	    fontSize = 42,
+	    glyphFixedWidth = 36,
+	    glyphDotKerning = -9,
+	    top = 0,
+	    left = -5,
+	    width = 278,
+	    height = 278,
+	    halign = center,
+	    valign = center
+	};
+
+	:SkinLib:Digit large_abs_digit_float_2_1 = @:SkinLib:FloatAbsoluteDigit {
+	    fontName = "Radio Space Italic",
+	    fontSlant = italic,
+	    digitFormat = "%2.1f",
+//	    fontName = "BankGothic Md BT",
+	    fontWeight = medium,
+	    fontSize = 42,
+	    glyphFixedWidth = 36,
+	    glyphDotKerning = -9,
+	    top = 0,
+	    left = -5,
+	    width = 278,
+	    height = 278,
+	    halign = center,
+	    valign = center
+	};
+
+	:SkinLib:Digit large_digit_float_1_2 = @:SkinLib:FloatDigit {
+	    fontName = "Radio Space Italic",
+	    fontSlant = italic,
+	    digitFormat = "%1.2f",
+	    fontWeight = medium,
+	    fontSize = 42,
+	    glyphFixedWidth = 36,
+	    glyphDotKerning = -9,
+	    top = 0,
+	    left = -5,
+	    width = 278,
+	    height = 278,
+	    halign = center,
+	    valign = center
+	};
+
+	Layer large_labels = Layer { 
+	    children = {
+		@Text { // Top line - Contains gauge name (RPM, Speed etc)
+		    fontName = "BankGothic Md BT",
+		    fontSize = 24,
+		    fontWeight = medium,
+		    left = 0,
+		    top = 204,
+		    width = 278,
+		    height = 278,
+		    halign = center
+		},
+		@Text { // Bottom line - Contains gauge metrics (kph, mph, etc)
+		    fontName = "BankGothic Md BT",
+		    fontSize = 24,
+		    fontWeight = medium,
+		    left = 0,
+		    top = 157,
+		    width = 278,
+		    height = 278,
+		    halign = center
+		}
+	    }
+	};
+
+	Layer small_labels = Layer { 
+	    width = 178,
+	    children = {
+		@Text { // Top line - Contains gauge name (RPM, Speed etc)
+		    fontName = "BankGothic Md BT",
+		    fontSize = 22,
+		    fontWeight = medium,
+		    left = 0,
+		    top = 139,
+		    width = 178,
+		    height = 178,
+		    halign = center
+		},
+		@Text { // Bottom line - Contains gauge metrics (kph, mph, etc)
+		    fontName = "BankGothic Md BT",
+		    fontSize = 18,
+		    fontWeight = medium,
+		    left = 0,
+		    top = 100,
+		    width = 178,
+		    height = 178,
+		    halign = center
+		}
+	    }
+	};
+
+	:SkinLib:GaugeLayer small_progress = :SkinLib:GaugeLayer {
+	    gaugeChildren = { 
+ 		@CriticalDDS {
+ 		    ddsFileFormat = "dds/CIRCLES-Standard-CriticalMarkingRed-SmallProgress.dds"
+ 		},
+ 		@:SkinLib:RedLightDDS {
+  		    ddsFileFormat = "dds//CIRCLES-Standard-Red-SmallGaugeGlow.dds",
+ 		    top = 18,
+ 		    left = 12
+  		},
+ 		@:SkinLib:ShiftLightDDS {
+  		    ddsFileFormat = "dds//CIRCLES-Standard-Yellow-SmallGaugeGlow.dds",
+		    top = 18,
+		    left = 12
+  		},
+		@CircleDDS {
+		    ddsFileFormat = "dds/CIRCLES-Standard-%s-SmallProgress1.dds" 
+		}
+	    }
+	};
+
+	:SkinLib:GaugeLayer small_dual = :SkinLib:GaugeLayer {
+	    gaugeChildren = { 
+		@CircleDDS {
+		    ddsFileFormat = "dds/CIRCLES-Standard-%s-SmallProgressDual1.dds" 
+		}
+	    }
+	};
+
+	:SkinLib:GaugeLayer large_progress = :SkinLib:GaugeLayer {
+	    gaugeChildren = {
+
+ 		@CriticalDDS {
+ 		    ddsFileFormat = "dds/CIRCLES-Standard-CriticalMarkingRed-BigProgress.dds"
+ 		},
+ 		@:SkinLib:RedLightDDS {
+  		    ddsFileFormat = "dds//CIRCLES-Standard-Red-BigGaugeGlow.dds",
+		    top = 23,
+		    left = 8
+  		},
+ 		@:SkinLib:ShiftLightDDS {
+  		    ddsFileFormat = "dds//CIRCLES-Standard-Yellow-BigGaugeGlow.dds",
+		    top = 23,
+		    left = 8
+  		},
+		@CircleDDS {
+		    ddsFileFormat = "dds/CIRCLES-Standard-%s-BigProgress1.dds" 
+		}	   
+
+	    }
+	};
+
+	:SkinLib:GaugeLayer large_dual = :SkinLib:GaugeLayer {
+	    gaugeChildren = {
+		@CircleDDS {
+		    ddsFileFormat = "dds/CIRCLES-Standard-%s-BigProgressDual1.dds" 
+		}
+	    }
+	};
+
+	script destroy {
+// 	    large_dual.gaugeChildren = {};
+// 	    large_dual = nil;
+// 	    large_progress.gaugeChildren = {};
+// 	    large_progress = nil;
+// 	    large_labels.children = {};
+// 	    large_labels = nil;
+// 	    small_dual.gaugeChildren = {};
+// 	    small_dual = nil;
+// 	    small_progress.gaugeChildren = {};
+// 	    small_progress = nil;
+// 	    small_labels.children = {};
+// 	    small_labels = nil;
+	    
+// 	    large_abs_digit_float_2_1 = nil;
+// 	    large_digit_float_2_1 = nil;
+// 	    large_digit_float_1_2 = nil;
+// 	    large_digit_int_blank_zero_1 = nil;
+// 	    large_digit_int_3 = nil;
+// 	    large_digit_int_4 = nil;
+// 	    small_abs_digit_float_2_1 = nil;
+// 	    small_digit_float_2_1 = nil;
+// 	    small_digit_float_1_2 = nil;
+// 	    small_digit_int_blank_zero_1 = nil;
+// 	    small_digit_int_3 = nil;
+// 	    small_digit_int_4 = nil;
+// 	    large_templates = {};
+// 	    small_templates = {};
+	}
+
+	script CircleSkin {
+	    //	    string @:SkinLib:Manager:Base.name = "secants";
+	    //
+	    // Which gauge profiles do we have available?
+	    //
+	    templates = {
+		//
+		// 640x480
+		//
+		{
+		    // - 0 - Large 3 digit progress.
+		    @:SkinLib:GaugeTemplate { digits = large_digit_int_3,  gauge = large_progress,  labels = large_labels },
+
+		    // - 1 - Large 3 digit dual.
+		    @:SkinLib:GaugeTemplate { digits = large_digit_int_3,  gauge = large_dual,  labels = large_labels },
+
+		    // - 2 -Large 4 digit progress.
+		    @:SkinLib:GaugeTemplate { digits = large_digit_int_4,  gauge = large_progress,  labels = large_labels },
+
+		    // - 3- Large 4 digit dual.
+		    @:SkinLib:GaugeTemplate { digits = large_digit_int_4,  gauge = large_dual,  labels = large_labels },
+
+		    // - 4 - Large 2.1 digit progress.
+		    @:SkinLib:GaugeTemplate { digits = large_digit_float_2_1,  gauge = large_progress,  labels = large_labels },
+
+		    // - 5 - Large 2.1 digit dual.
+		    @:SkinLib:GaugeTemplate { digits = large_abs_digit_float_2_1,  gauge = large_dual,  labels = large_labels },
+
+		    // - 6 - Large 1.2 digit progress.
+		    @:SkinLib:GaugeTemplate { digits = large_digit_float_1_2,  gauge = large_progress,  labels = large_labels },
+
+		    // - 7 - Large 1.2 digit dual.
+		    @:SkinLib:GaugeTemplate { digits = large_digit_float_1_2,  gauge = large_dual,  labels = large_labels },
+
+
+		    // - 8 - Small 3 digit progress.
+		    @:SkinLib:GaugeTemplate { digits = small_digit_int_3,  gauge = small_progress,  labels = small_labels },
+
+		    // - 9 - Small 3 digit dual.
+		    @:SkinLib:GaugeTemplate { digits = small_digit_int_3,  gauge = small_dual,  labels = small_labels },
+
+		    // - 10 - Small 4 digit progress.
+		    @:SkinLib:GaugeTemplate { digits = small_digit_int_4,  gauge = small_progress,  labels = small_labels },
+
+		    // - 11 - Small 4 digit dual.
+		    @:SkinLib:GaugeTemplate { digits = small_digit_int_4,  gauge = small_dual,  labels = small_labels },
+
+		    // - 12 - Small 2.1 digit progress.
+		    @:SkinLib:GaugeTemplate { digits = small_digit_float_2_1,  gauge = small_progress,  labels = small_labels },
+
+		    // - 13 - Small 2.1 digit dual.
+		    @:SkinLib:GaugeTemplate { digits = small_abs_digit_float_2_1,  gauge = small_dual,  labels = small_labels },
+
+		    // - 14 - Small 1.2 digit progress.
+		    @:SkinLib:GaugeTemplate { digits = small_digit_float_1_2,  gauge = small_progress,  labels = small_labels },
+
+		    // - 15 - Small 1.2 digit dual.
+		    @:SkinLib:GaugeTemplate { digits = small_digit_float_1_2,  gauge = small_dual,  labels = small_labels },
+		
+		    // - 16 - Large 1 digit no gauge.
+		    @:SkinLib:GaugeTemplate { digits = large_digit_int_blank_zero_1,  gauge = nil,  labels = large_labels },
+
+		    // - 17 - Small 1 digit no gauge.
+		    @:SkinLib:GaugeTemplate { digits = small_digit_int_blank_zero_1,  gauge = nil,  labels = small_labels }
+		},
+
+		//
+		// 800x480 
+		//
+		{
+		    // - 0 - Large 3 digit progress.
+		    @:SkinLib:GaugeTemplate { digits = large_digit_int_3,  gauge = large_progress,  labels = large_labels },
+
+		    // - 1 - Large 3 digit dual.
+		    @:SkinLib:GaugeTemplate { digits = large_digit_int_3,  gauge = large_dual,  labels = large_labels },
+
+		    // - 2 -Large 4 digit progress.
+		    @:SkinLib:GaugeTemplate { digits = large_digit_int_4,  gauge = large_progress,  labels = large_labels },
+
+		    // - 3- Large 4 digit dual.
+		    @:SkinLib:GaugeTemplate { digits = large_digit_int_4,  gauge = large_dual,  labels = large_labels },
+
+		    // - 4 - Large 2.1 digit progress.
+		    @:SkinLib:GaugeTemplate { digits = large_digit_float_2_1,  gauge = large_progress,  labels = large_labels },
+
+		    // - 5 - Large 2.1 digit dual.
+		    @:SkinLib:GaugeTemplate { digits = large_abs_digit_float_2_1,  gauge = large_dual,  labels = large_labels },
+
+		    // - 6 - Large 1.2 digit progress.
+		    @:SkinLib:GaugeTemplate { digits = large_digit_float_1_2,  gauge = large_progress,  labels = large_labels },
+
+		    // - 7 - Large 1.2 digit dual.
+		    @:SkinLib:GaugeTemplate { digits = large_digit_float_1_2,  gauge = large_dual,  labels = large_labels },
+
+		    // - 8 - Small 3 digit progress.
+		    @:SkinLib:GaugeTemplate { digits = small_digit_int_3,  gauge = small_progress,  labels = small_labels },
+
+		    // - 9 - Small 3 digit dual.
+		    @:SkinLib:GaugeTemplate { digits = small_digit_int_3,  gauge = small_dual,  labels = small_labels },
+
+		    // - 10 - Small 4 digit progress.
+		    @:SkinLib:GaugeTemplate { digits = small_digit_int_4,  gauge = small_progress,  labels = small_labels },
+
+		    // - 11 - Small 4 digit dual.
+		    @:SkinLib:GaugeTemplate { digits = small_digit_int_4,  gauge = small_dual,  labels = small_labels },
+
+		    // - 12 - Small 2.1 digit progress.
+		    @:SkinLib:GaugeTemplate { digits = small_digit_float_2_1,  gauge = small_progress,  labels = small_labels },
+
+		    // - 13 - Small 2.1 digit dual.
+		    @:SkinLib:GaugeTemplate { digits = small_abs_digit_float_2_1,  gauge = small_dual,  labels = small_labels },
+
+		    // - 14 - Small 1.2 digit progress.
+		    @:SkinLib:GaugeTemplate { digits = small_digit_float_1_2,  gauge = small_progress,  labels = small_labels },
+
+		    // - 15 - Small 1.2 digit dual.
+		    @:SkinLib:GaugeTemplate { digits = small_digit_float_1_2,  gauge = small_dual,  labels = small_labels },
+
+		    // - 16 - Large 1 digit no gauge.
+		    @:SkinLib:GaugeTemplate { digits = large_digit_int_blank_zero_1,  gauge = nil,  labels = large_labels },
+
+		    // - 17 - Small 1 digit no gauge.
+		    @:SkinLib:GaugeTemplate { digits = small_digit_int_blank_zero_1,  gauge = nil,  labels = small_labels }
+		}
+	    };
+
+
+	    slots = { 
+		//
+		// 640x480 slot placements
+		//
+		{
+		    // 640x480  - Small upper left
+		    @:SkinLib:Manager:Base:Slot { // 
+			owner = this,
+			height = 178, 
+			width = 178,
+			top = 34, 
+			left = 13,
+			usedTemplates = small_templates
+		    },
+		    // 640x480  - Small lower left
+		    @:SkinLib:Manager:Base:Slot { // 
+			owner = this,
+			height = 178, 
+			width = 178,
+			top = 256, 
+			left = 13,
+			usedTemplates = small_templates
+		    },
+		    // 640x480  - Small center 
+		    @:SkinLib:Manager:Base:Slot { // 
+			owner = this,
+			height = 178, 
+			width = 178,
+			top = 145, 
+			left = 167,
+			usedTemplates = small_templates
+		    },
+		    // 640x480  - Large upper right
+		    @:SkinLib:Manager:Base:Slot { // 
+			owner = this,
+			height = 278, 
+			width = 278,
+			top = 28, 
+			left = 349,
+			usedTemplates = large_templates
+		    },
+		    // 640x480  - Small lower right
+		    @:SkinLib:Manager:Base:Slot { // 
+			owner = this,
+			height = 178, 
+			width = 178,
+			top = 256, 
+			left = 398,
+			usedTemplates = small_templates
+		    }
+		},
+		//
+		// 800x480 slot placements.
+		//
+		{
+		    // 640x480  - Small upper left
+		    @:SkinLib:Manager:Base:Slot { // 
+			owner = this,
+			height = 178, 
+			width = 178,
+			top = 34, 
+			left = 56,
+			usedTemplates = small_templates
+		    },
+		    // 640x480  - Small lower left
+		    @:SkinLib:Manager:Base:Slot { // 
+			owner = this,
+			height = 178, 
+			width = 178,
+			top = 256, 
+			left = 56,
+			usedTemplates = small_templates
+		    },
+		    // 640x480  - Small center 
+		    @:SkinLib:Manager:Base:Slot { // 
+			owner = this,
+			height = 178, 
+			width = 178,
+			top = 145, 
+			left = 248,
+			usedTemplates = small_templates
+		    },
+		    // 640x480  - Large upper right
+		    @:SkinLib:Manager:Base:Slot { // 
+			owner = this,
+			height = 278, 
+			width = 278,
+			top = 28, 
+			left = 467,
+			usedTemplates = large_templates
+		    },
+		    // 640x480  - Small lower right
+		    @:SkinLib:Manager:Base:Slot { // 
+			owner = this,
+			height = 178, 
+			width = 178,
+			top = 256, 
+			left = 513,
+			usedTemplates = small_templates
+		    }
+		}
+	    };
+
+	    skinUnderlay = Layer  {
+		children = {
+		    :SkinLib:ResMaterialDDS { 
+			top = 0, 
+			left = 0,
+			transparency = 0,
+			ddsFileFormat = "dds/CIRCLES-%s-%s-Background.dds"
+		    }
+		},
+		top = 0,
+		left = 0,
+		width <- .ScreenLib.xRes,
+		height <- .ScreenLib.yRes,
+		transparency = 0,
+		wantFocus = true
+	    };
+
+	    skinOverlay = Layer  {
+		children = {
+		    :SkinLib:ResMaterialDDS { 
+			top = 0, 
+			left = 0,
+			transparency = 0,
+			ddsFileFormat = "dds/CIRCLES-%s-%s-HiLiteLayer.dds"
+		    },
+		    :SkinLib:ResMaterialDDS { 
+			top = 370, 
+			left <- (.ScreenLib.xRes / 2 - 150),
+			transparency = 0,
+			ddsFileFormat = "dds/CIRCLES-%s-%s-Logo.dds"
+		    }
+		}
+	    };
+	}
+    };
+    
+    type CircleSkinProducer: :SkinLib:Manager:Producer {
+	// Procue a new skin and assign it to manager
+	script produce when produce {
+	    printf("CircleSkinProducer::produce(): called from %s\n", sender(produce));
+	    produce = false;
+	    manager.skin =  @CircleSkin { 
+		name = ident.text, 
+		faciaColors = {
+		    @:SkinLib:FaciaColor { value = 1, text = "green", labelColor = 0x3EFE32, digitColor = 0x3EFE32 },
+		    @:SkinLib:FaciaColor { value = 2, text = "orange", labelColor = 0xFF7F00, digitColor =0xFF7F00 },
+		    @:SkinLib:FaciaColor { value = 3, text = "white", labelColor = 0xDFDFDF, digitColor = 0xDFDFDF },
+		    @:SkinLib:FaciaColor { value = 4, text = "blue", labelColor = 0x2B6EF6, digitColor = 0x2B6EF6 },
+		    @:SkinLib:FaciaColor { value = 5, text = "red", labelColor = 0xFF0000, digitColor = 0xFF0000 },
+		    @:SkinLib:FaciaColor { value = 6, text = "black", labelColor = 0x101010, digitColor = 0x101010 }
+		},
+
+		fgMaterials = {
+		    @:SkinLib:Material { value = 1, fileNameComponent = "OrangeGlow1", text = "orange" },
+		    @:SkinLib:Material { value = 2, fileNameComponent = "GreenGlow1", text = "green" },
+		    @:SkinLib:Material { value = 3, fileNameComponent = "ChromeGlow1", text = "chrome" },
+		    @:SkinLib:Material { value = 4, fileNameComponent = "StructuredWhite1", text = "white" },
+		    @:SkinLib:Material { value = 5, fileNameComponent = "BlueGlow1", text = "blue" }
+		},
+
+		bgMaterials = {
+		    @:SkinLib:Material { value = 1, fileNameComponent = "CarbonIce1", text = "carbon Ice" },
+		    @:SkinLib:Material { value = 2, fileNameComponent = "BlackMatte1", text = "black Matte" },
+		    @:SkinLib:Material { value = 3, fileNameComponent = "Alum1", text = "aluminium" },
+		    @:SkinLib:Material { value = 4, fileNameComponent = "BlueGlow1", text = "blue glow" },
+		    @:SkinLib:Material { value = 5, fileNameComponent = "GreenGlow1", text = "green glow" },
+		    @:SkinLib:Material { value = 6, fileNameComponent = "OrangeGlow1", text = "orange glow" }
+		    // 	    @:SkinLib:Material { value = 5, fileNameComponent = "BlackIce1", text = "Black Ice" },
+		}
+	    };
+	}
+    };    
+
+    //
+    // Init script to install tb_blue in Screen.
+    //
+    .SkinLib.manager.producers += @CircleSkinProducer {
+	ident = :GUI:Option { text = "secants", value = 0 } 
+    };
+}
+
+

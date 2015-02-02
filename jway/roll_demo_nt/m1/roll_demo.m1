@@ -1,0 +1,24 @@
+//
+// Just setup the source for the PiSYS3 stream
+
+
+event bool runtime <- @Timer { cycleInterval = 135.0 }.active;
+//event bool runtime;
+
+
+EventPlayer replay = @EventPlayer { fileName = "launch/m1_recording.1",
+  			enabled  = true,
+   			inputStrategy = .ScreenLib.inputStrategy };
+
+
+script runtime when !runtime {
+    .M1.halt = true;
+}
+
+.Core.cursor.forceCursorOn = true;
+
+//.ScreenLib.inputStrategy.recorder = @EventRecorder { fileName = "/tmp/m1_recording.1",  enabled  = true };
+
+.EngineLib.engine.device.port = "launch/caterhamdump.pi3";
+
+

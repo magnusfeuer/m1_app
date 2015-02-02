@@ -1,0 +1,46 @@
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+//
+// Add a Scion XD application
+//
+int ind = size(.EngineBaseLib.engine.vehicleProfiles);
+
+type ScionXDManProfile: :EngineBaseLib:VehicleProfile {
+    make = "Scion";
+    model = "xD";
+    startYear = 2008;
+    stopYear = 0; //
+    gearType = 1; // Tiptronic.
+    curbWeight = 1284; // Curb weight + driver. kg
+    length = 393; // Cm
+    width = 172;
+    height = 152;
+    wheelBase = 0;
+    displacement = 180; // cubic centimetres. 
+    imageFile = "dds/scion_xd.png";
+    obdIIProtocol = 0;
+
+    gearCount = 5;
+    cylinders = 4;
+    cylinderConfig = 1; // inline engine.
+
+    chanProf[.EC.rpm].max = 8000; 
+    chanProf[.EC.rpm].maxWarn = 6250;    
+    chanProf[.EC.rpm].maxCritical = 6500;   
+
+    tireWidth = 195;
+    tireSidewallRatio = 60;
+    tireRimDiameter = 16;
+
+};
+
+.EngineBaseLib.engine.vehicleProfiles[ind] = @ScionXDManProfile {};
+
+
+// Init current vehicle profile if necessary.
+if (.EngineBaseLib.engine.currentVehicleProfile == -1)
+    .EngineBaseLib.engine.currentVehicleProfile = 0;

@@ -1,0 +1,242 @@
+// -*- c++ -*-
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+library EngineLib {
+    
+    //
+    // ApexEngine
+    // This Engine subclass creates a Apex (c++) object and ties
+    // its output to the Engine variables. Normalization is done as well.
+    //
+    type ApexEngine: ApexDevice {
+	event string setConfigName <- .EngineBaseLib.engine.setConfigName;
+	event int setConfigValue <- .EngineBaseLib.engine.setConfigValue;
+	event int loc_state;
+	//
+	// The OBD-II protocol takes 5 seconds to query the ECU for which
+	// protocol (ISO, CAN, etc) that is currently used. Once we have done that,
+	// we will store the used protocol in the database for faster subsequent
+	// startups.
+	//
+	// Disabled due to bug in current Apex chip revision (1.4).
+	//
+//	Psigned engineProtocol = Psigned { key = "apex_engine.protocol", value = 0 };
+//	ApexDevice device = ApexDevice { port = "",  protocol = engineProtocol.value };
+
+	//
+	// Auto store any changes made to engine protocol, either
+	// by the apex engine driver itself, or by an m1 script.
+	//
+//      engineProtocol.value <- device.protocol; // Auto store any changes to engine protocol 
+
+	script loc_state when loc_state == 3 {
+	    // Trigger a setup of dependent channels (kph -> mph etc.
+	    .EngineBaseLib.engine.setupDependentChannels = true;
+
+
+	    printf("ApexEngine::state: loc_state == 3 (running)\n");
+	    if (.EngineBaseLib.engine.vehicleProfiles[.EngineBaseLib.engine.currentVehicleProfile].isoGapTime != 0) {// Init with default value
+		iso_gap_time = .EngineBaseLib.engine.vehicleProfiles[.EngineBaseLib.engine.currentVehicleProfile].isoGapTime;
+		printf("ApexEngine:Constructor: Setting iso gap time to %d\n",  iso_gap_time);
+	    }
+
+	}
+
+	script setConfigName when setConfigName != "" {
+	    if (setConfigName == "iso_gap_time") {
+		printf("ApexEngine: Setting iso gap time to %d\n", setConfigValue);
+		iso_gap_time = setConfigValue;
+	    }
+	}
+
+	script loc_state {
+	    printf("ApexEngine.loc_state updated to [%d] by CApexDevice\n", loc_state);
+	}
+
+	script ApexEngine {
+	    .EngineBaseLib.engine.state <- state;
+
+	    // For some reason "script state" does not trigger when base class updates.
+	    loc_state <- .EngineBaseLib.engine.state;
+	
+	    //
+	    // Setup subscritions into standardized channels map.
+	    //
+	    .EngineBaseLib.engine.channels[.EC.rpm].supported <- rpmSupported;
+	    .EngineBaseLib.engine.channels[.EC.map_mbar].supported <- mapSupported; 
+	    .EngineBaseLib.engine.channels[.EC.kph].supported <- spdSupported; 
+	    .EngineBaseLib.engine.channels[.EC.trim_1].supported <- l_trim_1Supported; 
+	    .EngineBaseLib.engine.channels[.EC.trim_2].supported <- l_trim_2Supported; 
+	    .EngineBaseLib.engine.channels[.EC.lam_1_1_l].supported <- lam_1Supported;
+	    .EngineBaseLib.engine.channels[.EC.lam_1_2_l].supported <- lam_2Supported;
+	    .EngineBaseLib.engine.channels[.EC.lam_2_1_l].supported <- lam_3Supported;
+	    .EngineBaseLib.engine.channels[.EC.lam_2_2_l].supported <- lam_4Supported;
+	    .EngineBaseLib.engine.channels[.EC.load].supported <- loadSupported;
+	    .EngineBaseLib.engine.channels[.EC.ect_c].supported <- ectSupported;
+	    .EngineBaseLib.engine.channels[.EC.iat_c].supported <- actSupported;
+	    .EngineBaseLib.engine.channels[.EC.vbat].supported <- vbatSupported;
+	    .EngineBaseLib.engine.channels[.EC.ign_adv].supported <- timingSupported;
+	    .EngineBaseLib.engine.channels[.EC.maf_g].supported <- mafSupported; 
+	    .EngineBaseLib.engine.channels[.EC.atps].supported <- tpsSupported;
+	    .EngineBaseLib.engine.channels[.EC.fp_mbar].supported <- fpSupported;
+	    .EngineBaseLib.engine.channels[.EC.fuel_lev].supported <- fuelSupported;
+	    .EngineBaseLib.engine.channels[.EC.bap_mbar].supported <- bapSupported;    
+	    .EngineBaseLib.engine.channels[.EC.fp_mbar].supported <- fpSupported;
+	    .EngineBaseLib.engine.channels[.EC.latency].supported <- true;
+
+	    //	.EngineBaseLib.engine.channels[.EC.hp].supported <- nil;
+	    //	.EngineBaseLib.engine.channels[.EC.torque_nm].supported <- nil
+	    //	.EngineBaseLib.engine.channels[.EC.gear].supported <- nil; // Todo - Tie in Torque calculator here.
+	    //	.EngineBaseLib.engine.channels[.EC.lp100k].supported <- nil; // Todo - Tie in fuel consumption calculator here.
+
+
+	    .EngineBaseLib.engine.channels[.EC.rpm].min <- rpmMin;
+	    .EngineBaseLib.engine.channels[.EC.map_mbar].min <- mapMin; 
+	    .EngineBaseLib.engine.channels[.EC.kph].min <- spdMin; 
+	    .EngineBaseLib.engine.channels[.EC.trim_1].min <- l_trim_1Min; 
+	    .EngineBaseLib.engine.channels[.EC.trim_2].min <- l_trim_2Min; 
+	    .EngineBaseLib.engine.channels[.EC.lam_1_1_l].min <- lam_1Min;
+	    .EngineBaseLib.engine.channels[.EC.lam_1_2_l].min <- lam_2Min;
+	    .EngineBaseLib.engine.channels[.EC.lam_2_1_l].min <- lam_3Min;
+	    .EngineBaseLib.engine.channels[.EC.lam_2_2_l].min <- lam_4Min;
+	    .EngineBaseLib.engine.channels[.EC.load].min <- loadMin;
+	    .EngineBaseLib.engine.channels[.EC.ect_c].min <- ectMin;
+	    .EngineBaseLib.engine.channels[.EC.iat_c].min <- actMin;
+	    .EngineBaseLib.engine.channels[.EC.vbat].min <- vbatMin;
+	    .EngineBaseLib.engine.channels[.EC.ign_adv].min <- timingMin;
+	    .EngineBaseLib.engine.channels[.EC.maf_g].min <- mafMin; 
+	    .EngineBaseLib.engine.channels[.EC.atps].min <- tpsMin;
+	    .EngineBaseLib.engine.channels[.EC.fp_mbar].min <- fpMin;
+	    .EngineBaseLib.engine.channels[.EC.fuel_lev].min <- fuelMin;
+	    .EngineBaseLib.engine.channels[.EC.bap_mbar].min <- bapMin;    
+	    .EngineBaseLib.engine.channels[.EC.fp_mbar].min <- fpMin;
+	    .EngineBaseLib.engine.channels[.EC.latency].min <- 0.0;
+	    //	.EngineBaseLib.engine.channels[.EC.hp].supported <- nil;
+	    //	.EngineBaseLib.engine.channels[.EC.torque_nm].supported <- nil
+	    //	.EngineBaseLib.engine.channels[.EC.gear].supported <- nil; // Todo - Tie in Torque calculator here.
+	    //	.EngineBaseLib.engine.channels[.EC.lp100k].supported <- nil; // Todo - Tie in fuel consumption calculator here.
+
+
+     
+	    .EngineBaseLib.engine.channels[.EC.rpm].max <- rpmMax;
+	    .EngineBaseLib.engine.channels[.EC.map_mbar].max <- mapMax; 
+	    .EngineBaseLib.engine.channels[.EC.kph].max <- spdMax; 
+	    .EngineBaseLib.engine.channels[.EC.trim_1].max <- l_trim_1Max; 
+	    .EngineBaseLib.engine.channels[.EC.trim_2].max <- l_trim_2Max; 
+	    .EngineBaseLib.engine.channels[.EC.lam_1_1_l].max <- lam_1Max;
+	    .EngineBaseLib.engine.channels[.EC.lam_1_2_l].max <- lam_2Max;
+	    .EngineBaseLib.engine.channels[.EC.lam_2_1_l].max <- lam_3Max;
+	    .EngineBaseLib.engine.channels[.EC.lam_2_2_l].max <- lam_4Max;
+	    .EngineBaseLib.engine.channels[.EC.load].max <- loadMax;
+	    .EngineBaseLib.engine.channels[.EC.ect_c].max <- ectMax;
+	    .EngineBaseLib.engine.channels[.EC.iat_c].max <- actMax;
+	    .EngineBaseLib.engine.channels[.EC.vbat].max <- vbatMax;
+	    .EngineBaseLib.engine.channels[.EC.ign_adv].max <- timingMax;
+	    .EngineBaseLib.engine.channels[.EC.maf_g].max <- mafMax; 
+	    .EngineBaseLib.engine.channels[.EC.atps].max <- tpsMax;
+	    .EngineBaseLib.engine.channels[.EC.fp_mbar].max <- fpMax;
+	    .EngineBaseLib.engine.channels[.EC.fuel_lev].max <- fuelMax;
+	    .EngineBaseLib.engine.channels[.EC.bap_mbar].max <- bapMax;    
+	    .EngineBaseLib.engine.channels[.EC.fp_mbar].max <- fpMax;
+	    .EngineBaseLib.engine.channels[.EC.latency].max <- 10.0; // Let's pray we never see 10 sec latency.
+	    //	.EngineBaseLib.engine.channels[.EC.hp].supported <- nil;
+	    //	.EngineBaseLib.engine.channels[.EC.torque_nm].supported <- nil
+	    //	.EngineBaseLib.engine.channels[.EC.gear].supported <- nil; // Todo - Tie in Torque calculator here.
+	    //	.EngineBaseLib.engine.channels[.EC.lp100k].supported <- nil; // Todo - Tie in fuel consumption calculator here.
+
+
+	    .EngineBaseLib.engine.channels[.EC.rpm].value <- rpm;
+	    .EngineBaseLib.engine.channels[.EC.map_mbar].value <- map; 
+	    .EngineBaseLib.engine.channels[.EC.kph].value <- spd; 
+	    .EngineBaseLib.engine.channels[.EC.trim_1].value <- l_trim_1; 
+	    .EngineBaseLib.engine.channels[.EC.trim_2].value <- l_trim_2; 
+	    .EngineBaseLib.engine.channels[.EC.lam_1_1_l].value <- lam_1;
+	    .EngineBaseLib.engine.channels[.EC.lam_1_2_l].value <- lam_2;
+	    .EngineBaseLib.engine.channels[.EC.lam_2_1_l].value <- lam_3;
+	    .EngineBaseLib.engine.channels[.EC.lam_2_2_l].value <- lam_4;
+	    .EngineBaseLib.engine.channels[.EC.load].value <- load;
+	    .EngineBaseLib.engine.channels[.EC.ect_c].value <- ect;
+	    .EngineBaseLib.engine.channels[.EC.iat_c].value <- act;
+	    .EngineBaseLib.engine.channels[.EC.vbat].value <- vbat;
+	    .EngineBaseLib.engine.channels[.EC.ign_adv].value <- timing;
+	    .EngineBaseLib.engine.channels[.EC.maf_g].value <- maf; 
+	    .EngineBaseLib.engine.channels[.EC.atps].value <- tps;
+	    .EngineBaseLib.engine.channels[.EC.fp_mbar].value <- fp;
+	    .EngineBaseLib.engine.channels[.EC.fuel_lev].value <- fuel;
+	    .EngineBaseLib.engine.channels[.EC.bap_mbar].value <- bap;    
+	    .EngineBaseLib.engine.channels[.EC.fp_mbar].value <- fp; 
+	    .EngineBaseLib.engine.channels[.EC.latency].value <- latency; 
+	    //	.EngineBaseLib.engine.channels[.EC.hp].supported <- nil;
+	    //	.EngineBaseLib.engine.channels[.EC.torque_nm].supported <- nil
+	    //	.EngineBaseLib.engine.channels[.EC.gear].supported <- nil; // Todo - Tie in Torque calculator here.
+	    //	.EngineBaseLib.engine.channels[.EC.lp100k].supported <- nil; // Todo - Tie in fuel consumption calculator here.
+
+	    rpmUsage <- (.EngineBaseLib.engine.channels[.EC.rpm].usage + 
+				.EngineBaseLib.engine.channels[.EC.gear].usage + 
+				.EngineBaseLib.engine.channels[.EC.torque_nm].usage + 
+				.EngineBaseLib.engine.channels[.EC.torque_lbft].usage + 
+				.EngineBaseLib.engine.channels[.EC.hp].usage); 
+
+	    mapUsage <- (.EngineBaseLib.engine.channels[.EC.map_mbar].usage + 
+				.EngineBaseLib.engine.channels[.EC.map_psi].usage + 
+				.EngineBaseLib.engine.channels[.EC.map_mbarcm].usage + 
+				.EngineBaseLib.engine.channels[.EC.map_psiin].usage);
+
+	    spdUsage <- (.EngineBaseLib.engine.channels[.EC.kph].usage + .EngineBaseLib.engine.channels[.EC.mph].usage + .EngineBaseLib.engine.channels[.EC.gear].usage + .EngineBaseLib.engine.channels[.EC.mpg].usage + .EngineBaseLib.engine.channels[.EC.gforce].usage);
+	    l_trim_1Usage <- 	.EngineBaseLib.engine.channels[.EC.trim_1].usage ;
+	    l_trim_2Usage <- 	.EngineBaseLib.engine.channels[.EC.trim_2].usage ;
+
+	    lam_1Usage <-	(.EngineBaseLib.engine.channels[.EC.lam_1_1_l].usage + 
+				 .EngineBaseLib.engine.channels[.EC.lam_1_1_a].usage +
+				 .EngineBaseLib.engine.channels[.EC.lam_1_1_v].usage); 
+
+	    lam_2Usage <-	(.EngineBaseLib.engine.channels[.EC.lam_1_2_l].usage + 
+				 .EngineBaseLib.engine.channels[.EC.lam_1_2_a].usage + 
+				 .EngineBaseLib.engine.channels[.EC.lam_1_2_v].usage); 
+
+
+	    lam_3Usage <-	(.EngineBaseLib.engine.channels[.EC.lam_2_1_l].usage + 
+				 .EngineBaseLib.engine.channels[.EC.lam_2_1_a].usage +
+				 .EngineBaseLib.engine.channels[.EC.lam_2_1_v].usage); 
+
+	    lam_4Usage <-	(.EngineBaseLib.engine.channels[.EC.lam_2_2_l].usage + 
+				 .EngineBaseLib.engine.channels[.EC.lam_2_2_a].usage + 
+				 .EngineBaseLib.engine.channels[.EC.lam_2_2_v].usage); 
+
+	    loadUsage <-	.EngineBaseLib.engine.channels[.EC.load].usage ; 
+	    ectUsage <-	(.EngineBaseLib.engine.channels[.EC.ect_c].usage + .EngineBaseLib.engine.channels[.EC.ect_f].usage);
+	    actUsage <- 	(.EngineBaseLib.engine.channels[.EC.iat_c].usage + .EngineBaseLib.engine.channels[.EC.iat_f].usage);
+	    vbatUsage <- 	        .EngineBaseLib.engine.channels[.EC.vbat].usage ; 
+	    timingUsage <- 	.EngineBaseLib.engine.channels[.EC.ign_adv].usage ;
+	    mafUsage <-  	(.EngineBaseLib.engine.channels[.EC.maf_g].usage + 
+					 .EngineBaseLib.engine.channels[.EC.maf_o].usage + 
+					 .EngineBaseLib.engine.channels[.EC.mpg].usage +
+					 .EngineBaseLib.engine.channels[.EC.hp].usage + 
+					 .EngineBaseLib.engine.channels[.EC.torque_nm].usage + 
+					 .EngineBaseLib.engine.channels[.EC.torque_lbft].usage); 
+	    tpsUsage <- 	(.EngineBaseLib.engine.channels[.EC.rtps].usage + .EngineBaseLib.engine.channels[.EC.atps].usage + .EngineBaseLib.engine.channels[.EC.torque_nm].usage + .EngineBaseLib.engine.channels[.EC.torque_lbft].usage + .EngineBaseLib.engine.channels[.EC.hp].usage);
+	    fpUsage <- 	(.EngineBaseLib.engine.channels[.EC.fp_mbar].usage + .EngineBaseLib.engine.channels[.EC.fp_psi].usage);
+	    fuelUsage <- 	.EngineBaseLib.engine.channels[.EC.fuel_lev].usage ;
+	    bapUsage <-     	(.EngineBaseLib.engine.channels[.EC.bap_mbar].usage + .EngineBaseLib.engine.channels[.EC.bap_psi].usage);
+	    fpUsage <- 	(.EngineBaseLib.engine.channels[.EC.fp_mbar].usage + .EngineBaseLib.engine.channels[.EC.fp_psi].usage);
+	    //	.EngineBaseLib.engine.channels[.EC.hp].supported <- nil; 
+	    //	.EngineBaseLib.engine.channels[.EC.lp100k].supported <- nil; // Todo - Tie in fuel consumption calculator here.
+	}
+    };
+	
+    
+    // Persistent storage of the selected protocol.
+    ApexEngine engine = ApexEngine { };
+
+    // Setting port will trigger the ApexDevice reading of PIDs
+    // from the ECU, which will trigger xxxSupported, which
+    // will trigger the scripts above.
+    if (getenv("M1_APEX_DEVICE") == "")
+	engine.port = "/dev/ttyAPEX";
+    else
+	engine.port = getenv("M1_APEX_DEVICE");
+}

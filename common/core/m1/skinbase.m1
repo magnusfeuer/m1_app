@@ -1,0 +1,1302 @@
+// -*- c++ -*-
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+library SkinLib {
+
+    //
+    // Let's do this correctly.
+    //
+    // A skin is divided into slots, each one showing one instrument.
+    // The skin has the following attributes
+    // Name - Name of the skin (CIRCLES, TRADITIONAL, etc)
+    // Material (or color). (Carbon1)
+    //
+    // The slot has the following attributes.
+    // size
+    // 
+    // Each slot contains one or more different instruments (speed, rpm etc).
+    // Each instrument subscribes to a specific engine channel.
+    // The instrument has the following attributes:
+    // The engine channel
+    //
+    // Each instrument can have one or more different variants, showing
+    // kph, mph. All variants of an instrument display the same data,
+    // but may use different measurements.
+    //
+    // An instrument has the following attributes.
+    // 
+    // Each 
+    //
+    // Contains one variation of an instrument that lives
+    //
+
+    // 
+    // instruments are defined below
+    //
+    int counter = 0;
+    type Digit : Text {
+    	public event string digitFormat;
+        public event float value;
+    };
+
+    //
+    // Digits to be used in the small gauges
+    // Mostly used as a space saver
+    //
+    type IntDigit : Digit {
+	script value {
+	    text = sprintf(digitFormat, @int(value));
+	}
+    };
+
+    type FloatDigit : Digit {
+	script value {
+	    text = sprintf(digitFormat, value);
+	}
+    };
+
+    type IntAbsoluteDigit : Digit {
+	script value {
+	    text = sprintf(digitFormat, abs(@int(value)));
+	}
+    };
+
+    type FloatAbsoluteDigit : Digit {
+	script value {
+	    text = sprintf(digitFormat, abs(value));
+	}
+    };
+
+    // Used by the gear indicators
+    type IntGearDigit : Digit {
+	script value {
+	    if (value == 1.0)
+		text = "1";
+	    else
+	    if (value == 2.0)
+		text = "2";
+	    else
+	    if (value == 3.0)
+		text = "3";
+	    else
+	    if (value == 4.0)
+		text = "4";
+	    else
+	    if (value == 5.0)
+		text = "5";
+	    else
+	    if (value == 6.0)
+		text = "6";
+	    else
+		text = "-";
+	}
+    };
+    
+    //
+    // A layer that automatically changes DDS file
+    // when resolution or material changes.
+    // ddsFileFormat will have the first %s
+    // replaced with the XXXxYYY where XXX is horizontal
+    // resolution (640) and YYY is vertical resoltion (480).
+    // The second %s is replaced with the selected material
+    //
+    type ResMaterialDDS : DDS {
+	string ddsFileFormat;
+    };
+
+    //
+    // DDS file with a GaugeBase reference
+    // used to extract current engine channel
+    // and vehicle profile data to be used
+    // by DDS component
+    //
+    type GaugeDDS: DDS {
+	Layer owner = nil; // The layer containing this gauge.
+	event :EngineBaseLib:EngineChannel channel = nil;
+	event :EngineBaseLib:VehicleProfile:ChannelProfile cProfile;
+	string ddsFileFormat;
+	bool useBG = false; // Ugly!
+	event bool destroy = false; // Destroy self.
+
+
+	script channel when channel != nil {
+	    value <- channel.normal.value;
+	    *value = channel.normal.value;
+	    cProfile <- channel.profile;
+	    *cProfile = channel.profile;
+	}
+
+	script channel when channel == nil {
+	    value <- nil;
+	}
+
+	script ddsFile {
+	    //	    printf("*** GaugeDDS(%s)\n", ddsFile);
+	}
+	script destroy when destroy {
+	    //	    printf("GaugeDDS:destroy[%s] Called\n", ddsFile);
+	    value <- nil;
+	    ddsFile <- nil;
+	}
+
+	script ~GaugeDDS {
+	    --counter;
+	    //	    printf("-- GearDDS[%s/%d]\n", ddsFile, counter);
+	}
+
+	script GaugeDDS {
+	    ++counter;
+	    //	    printf("++ GearDDS[%s/%d]\n", ddsFile, counter);
+ 	    if (channel != nil)  {
+		*cProfile = channel.profile;
+ 	    }
+	}
+    };
+
+    //
+    // on/off dds (single frame) to enable at a critical level of max.
+    //
+    type WarningLightDDS: GaugeDDS {
+	event float thresholdOn;
+	event float thresholdOff;
+	event float inputValue;
+	bool isOn = false;
+	event float lightOn;
+	event float lightOff; // lightOff must be greater than lightOn
+	
+	script cProfile when cProfile != nil{
+	    thresholdOn <- (1.0 - (channel.profile.max - lightOn) / channel.profile.max);
+	    thresholdOn = (1.0 - (channel.profile.max - lightOn) / channel.profile.max);
+	    thresholdOff <- (1.0 - (channel.profile.max - lightOff) / channel.profile.max);
+	    thresholdOff = (1.0 - (channel.profile.max - lightOff) / channel.profile.max);
+	}
+
+	script inputValue when inputValue >=  thresholdOn && inputValue < thresholdOff && !isOn {
+	    isOn = true;
+	    transparency = 0.0;
+	}
+
+	script inputValue when inputValue <  thresholdOn || inputValue >= thresholdOff && isOn {
+	    isOn = false;
+	    transparency = 1.0;
+	}
+
+	script channel when channel != nil {
+	    inputValue <- channel.normal.value;
+	    inputValue = channel.normal.value;
+	}
+
+	script destroy when destroy {
+	    thresholdOn <- nil;
+	    thresholdOff <- nil;
+	    lightOn <- nil;
+	    lightOff <- nil;
+	    inputValue <- nil;
+	}
+
+	script WarningLightDDS {
+	    transparency = 1.0;
+	}
+    };
+
+    type RedLightDDS: WarningLightDDS {
+	script cProfile when cProfile != nil  {
+	    lightOn <- cProfile.maxCritical;
+	    lightOn = cProfile.maxCritical;
+	    lightOff <- cProfile.max + 1;
+	    lightOff = cProfile.max + 1;
+	}
+    };
+
+    type ShiftLightDDS: WarningLightDDS {
+	script cProfile when cProfile != nil  {
+	    lightOn <- cProfile.maxWarn;
+	    lightOff <- cProfile.maxCritical;
+	    lightOn = cProfile.maxWarn;
+	    lightOff = cProfile.maxCritical;
+	}
+    };
+
+    //
+    // Simple gauge template for various typs of gauges.
+    //
+    type ResMaterialDDSLayer: Layer {
+	ResMaterialDDS ddsChildren[] = {};
+    };
+
+    type GaugeLayer: Layer {
+	GaugeDDS gaugeChildren[] = {};
+    };
+
+    type GaugeTemplate { 
+	GaugeLayer bottom = nil;
+	Layer labels = nil; // Assumed to have two children. First child will contain gauge name, second metric. All subsequent children are displayed as is.
+	GaugeLayer gauge = GaugeLayer {}; // All children are expected to be in gaugeChildren
+	Digit digits = nil; // Will be deep copied into the actual skins.
+	Layer overlay = nil;
+    };
+
+    type Material: :GUI:Option {
+	event string fileNameComponent;
+//         public event unsigned labelColor = 0xFFFFFF;
+//         public event unsigned digitColor = 0xFFFFFF;
+// 	public event float labelTransparency = 0.0;
+//         public event float digitTransparency = 0.0;
+//	value = nextMatID++;
+    };
+
+    type FaciaColor: :GUI:Option {
+        public event unsigned digitColor = 0xFFFFFF;
+        public event unsigned labelColor = 0xFFFFFF;
+	public event float labelTransparency = 0.0;
+        public event float digitTransparency = 0.0;
+	//	value = nextMatID++;
+    };
+
+
+    //
+    // FIXME: Turn into separate generic class
+    //        for displaying and managing. status.
+    //
+    Text statusMsg = Text {
+	fontName = .GUI.systemFont,
+	fontSize = .GUI.announceFontSize,
+	//	    fontSlant = roman,
+	fontWeight = medium,
+	fontColor = 0xFFFFFF,
+	transparency = 1.0,
+	left = 0,
+	top = 230,
+	width = .ScreenLib.xRes,
+	halign = center
+    }; 
+
+    //
+    // SkinManager
+    // Creates and destroys skins
+    //
+    type Manager: Layer {
+	event bool setupModeMenu;  // Set by skin
+	event bool skinSetupComplete; // Triggered when a skin has completed its setup.
+
+	//
+	// Skin Base class
+	//
+	type Base: :GUI:MenuEnabledLayer {
+	    event bool setup = false; // Set to true once when the skin should set itself up
+	    event bool destroy = false; // 
+	    event int state = 0;
+	    Manager manager = nil;
+	    public string name;
+	    public Material fgMaterials[];
+            public Material bgMaterials[];
+            public FaciaColor faciaColors[]; // Colors of labels, number and other things on the facia.
+            public event int fgSelected = -1;
+            public event int bgSelected = -1;
+            public event int fcSelected = -1;
+	    event int resInd;
+	    GaugeTemplate templates[][] = { };
+	    event Layer skinUnderlay = nil;
+	    event Layer skinOverlay = nil;
+	    int i;
+	    int j;
+	    int slot_ind;
+	
+	    // Stored foreground selection.
+	    Psigned fgSelectedDB = nil;
+	    Psigned bgSelectedDB = nil;
+	    Psigned fcSelectedDB = nil;
+
+	    bool initialized = false;
+	    event string cfgMaterial;
+	    event string cbgMaterial;
+            public event unsigned labelColor;
+            public event unsigned digitColor;
+            public event float labelTransparency;
+            public event float digitTransparency;
+	    event int loSubMenuSelectedOption;
+	    event int fcSubMenuSelectedOption;
+	    event int bgSubMenuSelectedOption;
+	    event int fgSubMenuSelectedOption;
+	    :GUI:MenuDialog bgMenu;
+	    :GUI:MenuDialog fgMenu;
+	    :GUI:MenuDialog fcMenu;
+
+	    //
+	    // Slot
+	    // Contains one or more instruments that can be switched between.
+	    //
+	    type Slot: :GUI:MenuEnabledLayer {
+		type SlotLayer: Layer {
+		    Slot ownerSlot = nil;
+		};
+
+                public Base owner = nil; // The ID of the skin that hosts this slot.
+                public SlotLayer bottom = nil;
+                public Layer underlay = nil;
+                public Layer labels = nil;
+                public SlotLayer gauges = nil;
+                public Digit digits = nil;
+                public Layer overlay = nil;
+		int slotID; // Assigned by constructor list.
+		Psigned channelDB = nil;
+		int usedTemplates[] =  nil; // Channel profile to use for each channel.  Element indexes templates above.
+	        event :EngineBaseLib:EngineChannel channel = nil; // Current channel that we are subscribing to.
+	        :EngineBaseLib:EngineChannel prevChannel = nil; // Old channel. Will have its usage decreased.
+		 
+		//
+		// Setup a new channel for this slot.
+		//
+		script channel {  
+		    int used_template;
+
+		    // Setup DB entry.
+		    if (channelDB == nil)
+			channelDB = Psigned { key = sprintf("tb_base.%s.%d", owner.name, slotID), value = 1 };	 
+
+		    //
+		    // If channel is nil, use db stored channel.
+		    // Else store new channel in db for future use.
+		    //
+		    if (channel == nil) 
+			channel = .EngineBaseLib.engine.channels[channelDB.value];
+		    else
+			channelDB.value = channel.index;
+		    
+		    //		    printf("Slot: channel(%s) Called [%s]=[%d]\n", channel.descriptor.name, channelDB.key, channelDB.value);
+		    //
+		    // Setup the DB variable, if necessary.
+		    //
+		    used_template = usedTemplates[channel.index];
+
+		    //
+		    // Create digits.
+		    // 
+		    if (owner.templates[owner.resInd][used_template].digits != nil) {
+			digits = clone(owner.templates[owner.resInd][used_template].digits);
+			digits.value <- channel.value;
+			digits.value = channel.value;
+			digits.fontColor <- owner.digitColor;
+			*digits.fontColor = owner.digitColor;
+			digits.transparency <- owner.digitTransparency;
+			*digits.transparency = owner.digitTransparency;
+		    }			
+
+			
+		    //
+		    // Create gauge layer.
+		    // 
+		    if (owner.templates[owner.resInd][used_template].gauge != nil && 
+			size(owner.templates[owner.resInd][used_template].gauge.gaugeChildren) > 0) {
+			int i;
+
+			gauges = SlotLayer { // copy does not really work yet.
+			    top = owner.templates[owner.resInd][used_template].gauge.top,
+			    left = owner.templates[owner.resInd][used_template].gauge.left,
+			    height = owner.templates[owner.resInd][used_template].gauge.height,
+			    width = owner.templates[owner.resInd][used_template].gauge.width,
+			    clip = owner.templates[owner.resInd][used_template].gauge.clip,
+			    ownerSlot = this,
+			    children = {}
+			};
+
+
+			foreach i in [ 0 : size(owner.templates[owner.resInd][used_template].gauge.gaugeChildren)-1] {
+			    GaugeDDS tmp;
+
+			    tmp = clone(owner.templates[owner.resInd][used_template].gauge.gaugeChildren[i]);
+			    tmp.owner = gauges;
+
+			    tmp.channel <- channel;
+			    *tmp.channel = channel;
+			    //
+			    // Setup a subscription to reload dds when material changes.
+			    // (I love m1!)
+			    //
+			    if (tmp.useBG)
+				tmp.ddsFile <- ( sprintf(tmp.ddsFileFormat, owner.cbgMaterial) ); 
+			    else 
+				tmp.ddsFile <- ( sprintf(tmp.ddsFileFormat, owner.cfgMaterial) ); 
+		    
+			    gauges.children[i] = tmp; 
+			}
+		    }
+		
+		    // Shallow  copy top .
+		    if (owner.templates[owner.resInd][used_template].overlay != nil) 
+			overlay = owner.templates[owner.resInd][used_template].overlay;
+
+
+		    // Deep copy bottom layers.
+		    if (owner.templates[owner.resInd][used_template].bottom != nil && 
+			size(owner.templates[owner.resInd][used_template].bottom.gaugeChildren) > 0) {
+			int i;
+			bottom = SlotLayer { // copy does not really work yet.
+			    top = owner.templates[owner.resInd][used_template].bottom.top,
+			    left = owner.templates[owner.resInd][used_template].bottom.left,
+			    height = owner.templates[owner.resInd][used_template].bottom.height,
+			    width = owner.templates[owner.resInd][used_template].bottom.width,
+			    clip = owner.templates[owner.resInd][used_template].bottom.clip,
+			    ownerSlot = this,
+			    children = {}
+
+			};
+
+			foreach i in [0 : size(owner.templates[owner.resInd][used_template].bottom.gaugeChildren) - 1] {
+			    GaugeDDS tmp;
+
+			    tmp = clone(owner.templates[owner.resInd][used_template].bottom.gaugeChildren[i]);
+			    // 				    tmp := owner.templates[owner.resInd][used_template].bottom.gaugeChildren[i];
+
+			    tmp.owner = bottom;
+			    tmp.channel <- channel;
+			    *tmp.channel = channel;
+			    //
+			    // Setup a subscription to reload dds when material changes.
+			    //
+			    if (tmp.useBG)
+				tmp.ddsFile <-( sprintf(tmp.ddsFileFormat, owner.cbgMaterial) ); 
+			    else
+				tmp.ddsFile <- ( sprintf(tmp.ddsFileFormat, owner.cfgMaterial) ); 
+
+			    bottom.children[i] = tmp;
+			}
+		    }
+
+		    // Deep copy labels layers.
+		    if (owner.templates[owner.resInd][used_template].labels != nil) {
+			int i;
+
+			labels = Layer {};
+
+			foreach i in [0 : size(owner.templates[owner.resInd][used_template].labels.children) - 1] {
+			    if (@Text(owner.templates[owner.resInd][used_template].labels.children[i]) != nil) {
+				Text new_txt; // = @Text {};
+
+				new_txt = @Text(clone(owner.templates[owner.resInd][used_template].labels.children[i]));
+				new_txt.fontColor <- owner.labelColor;
+				new_txt.transparency <- owner.labelTransparency;
+				labels.children[i] = new_txt;
+			    } else
+				labels.children[i] = owner.templates[owner.resInd][used_template].labels.children[i];
+			}
+		    
+			if (size(labels.children) == 1 && 
+			    labels.children[0] != nil &&
+			    channel.descriptor.shortUnitType != "") 
+			    @Text(labels.children[0]).text = 
+				channel.descriptor.shortUnitType + " " + channel.descriptor.shortName;
+
+
+			if (size(labels.children) == 1 && 
+			    labels.children[0] != nil &&
+			    channel.descriptor.shortUnitType == "") 
+			    @Text(labels.children[0]).text = channel.descriptor.shortName;
+
+			if (size(labels.children) == 2 &&
+			    labels.children[0] != nil &&
+			    labels.children[1] != nil) {
+			    @Text(labels.children[0]).text = channel.descriptor.shortName;
+			    @Text(labels.children[1]).text = channel.descriptor.shortUnitType;
+			}
+		    }
+
+		    children = {};
+		    children += bottom;
+		    children += labels; 
+		    children += gauges; 
+		    children += digits; 
+		    children += overlay; 
+
+		    //
+		    // Adjust usage for old and new channel.
+		    //
+		    if (prevChannel != nil)
+			prevChannel.usage = prevChannel.usage - 1;
+
+		    channel.usage = channel.usage +1;
+
+		    prevChannel = channel;
+		}
+
+		//
+		// Install all available channels and units of measure
+		// in the menu
+		//
+		script installOptions {
+		    string prev = "";
+		    int index;
+		    :EngineBaseLib:EngineChannel c_walk;
+		    bool alternate_metric_installed = false;
+		    printf("Slot: installOptions() Called.\n");
+
+		    // First install our own alternate units of measure.
+		    foreach c_walk in .EngineBaseLib.engine.channels {
+			if (c_walk.supported && 
+			    usedTemplates[c_walk.index] != -1 &&
+			    c_walk.descriptor.shortName == channel.descriptor.shortName &&
+			    c_walk != channel) {
+			    menu.options.entries += @:GUI:Option { text = c_walk.descriptor.unitType, value = c_walk.index };
+			    alternate_metric_installed = true;
+			}
+		    }
+		    // Delimiter.
+		    if (alternate_metric_installed)
+			menu.options.entries += @:GUI:Option { text = "", value = -2.0 };
+			
+		    foreach c_walk in .EngineBaseLib.engine.channels {
+			//		    printf("  [%s: %s/%s]\n", c_walk.descriptor.name, c_walk.descriptor.shortName, prev);
+			if (c_walk.supported &&
+			    usedTemplates[c_walk.index] != -1 &&
+			    prev != c_walk.descriptor.name)  {
+			    // Gray out currently active channel
+			    if (c_walk.descriptor.name == channel.descriptor.name)
+				menu.options.entries += @:GUI:Option { text = c_walk.descriptor.name, value = -1.0 };
+			    else
+				menu.options.entries += @:GUI:Option { text = c_walk.descriptor.name, value = c_walk.index };
+
+			    prev = c_walk.descriptor.name;
+			}
+		    }
+		}
+
+		//
+		// A menu option has been sellected.
+		// If selectedOption == -1, then just destroy the existing stuff.
+		//
+		script selectedOption when selectedOption < .EC.count {
+		    //		    printf("Slot:SelectedOption: Called [%d]\n", selectedOption);
+
+
+		    //
+		    // Walk through all existing setups and destroy them
+		    //
+		    if (digits != nil) {
+			digits.value <- nil;
+			digits.fontColor <- nil;
+			digits.transparency <- nil;
+			digits = nil;
+		    }
+
+		    underlay = nil;
+		    overlay = nil;
+		    // Destroy all gauges.
+		    if (gauges != nil) {
+			Layer child;
+			foreach child in gauges.children {
+			    @GaugeDDS(child).destroy = true;
+			}
+			gauges.children = nil;
+			gauges = nil;
+		    }
+
+		    // Destroy all bottom layer
+		    if (bottom != nil) {
+			Layer child;
+			foreach child in bottom.children {
+			    @GaugeDDS(child).destroy = true;
+			}
+			bottom.children = nil;
+			bottom = nil;
+		    }
+		    // Destroy all labels
+		    if (labels != nil) {
+			Layer child;
+			foreach child in labels.children {
+			    Text txt = @Text(child);
+			    txt.fontColor <- nil;
+			    txt.transparency <- nil;
+			}
+			labels.children = nil;
+			bottom = nil;
+		    }
+
+		    children = {};
+
+		    if (selectedOption != -1) {
+			*channel = .EngineBaseLib.engine.channels[selectedOption];
+		    }
+		}
+
+		script ~Slot {
+		    //		    printf("~Slot called\n");
+		}
+		// Slot constructor.
+		script Slot {
+		    menu = .GUI.popupMenu;
+		    wantFocus = true;
+		    exclusiveFocus = true;
+		}
+	    };
+
+	    //
+	    // END OF SLOT START OF SKIN
+	    //
+	    Slot slots[][] = { };
+		   
+	    script installOptions when installOptions && focused {
+		int i;
+		//
+		// Add all skins
+		//
+		//		printf("Skin:installOptions(): Called\n");
+		.Core.logLayer.finalMsg.transparency <- nil;
+		.Core.logLayer.finalMsg.transparency = 1.0;
+
+		menu.options.entries += @:GUI:Option { text = "mode...", value = 10000 };
+		menu.options.entries += @:GUI:Option { text = "skin...", value = 10001 };
+		menu.options.entries += @:GUI:Option { text = "indicator...", value = 10002 };
+		menu.options.entries += @:GUI:Option { text = "gauge text...", value = 10003 };
+
+		// 	    menu.options.entries += :GUI:Option { 
+		// 		text = "quit",
+		// 		value = 99996
+		// 	    };
+
+		menu.options.entries += :GUI:Option { 
+		    value = -2
+			};
+
+		menu.options.entries += :GUI:Option { 
+		    text = "start log",
+			value = 10004
+			};
+
+
+		menu.options.entries += :GUI:Option { 
+		    text = "replay log",
+			value = 10005
+		};
+
+
+		menu.options.entries[size(menu.options.entries)] = :GUI:Option { 
+		    value = -2
+		};
+
+		menu.options.entries += :GUI:Option { 
+		    text = "setup...",
+			value = 10006
+			};
+
+		.Core.logLayer.finalMsg.transparency <- nil;
+		.Core.logLayer.finalMsg.transparency = 1.0;
+	    }
+
+	    // 	script selectedOption when transparency != 1.0 {
+	    // 	    int i ;
+	    // 	    foreach i in [ 0 : size(skins.children) - 1 ] {
+	    // 		if (@PreSkinBase(skins.children[i]).ident.value == currentSkin.value) {
+	    // 		    printf("PING\n");
+	    // //		    *@PreSkinBase(skins.children[i]).selectedOption = selectedOption;
+	    // 		}
+	    // 	    }
+	    // 	}
+
+	    script selectedOption when (selectedOption == 10006) && transparency != 1.0 {
+		selectedOption = 0;
+		@:Core:SetupDialog { show = true };
+	    }
+
+	    script selectedOption when (selectedOption == 10004) && transparency != 1.0 {
+		selectedOption = 0;
+		// Setup the logging blanking layer, blocking all access until logging is complete
+		.Core.logLayer.logActive  = true;
+	    }
+
+	    script selectedOption when (selectedOption == 10005) && transparency != 1.0 {
+		selectedOption = 0;
+
+		// Enable logging to file.
+		@:Core:ReplayDialog { replay = true, show = true };
+	    }
+
+	    // QUIT
+	    script selectedOption when (selectedOption == 10007) && transparency != 1.0 {
+		selectedOption = 0;
+	    
+		// 	    .Core.lastLogFile = nil;
+		// 	    cursor = nil;
+		// 	    touchscreenCalibration = nil;
+		// 	    resetScreenResolution = nil;
+		// 	    .GUI.dialogManager = nil;
+		// 	    .GUI.popupMenu = nil;
+		// 	    .ScreenLib.screen = nil;
+		// 	    .ScreenLib.inputStrategy = nil;
+		// 	    .ScreenLib.touchscreen = nil;
+		// 	    .ScreenLib.currentResDB = nil;
+		// 	    .ScreenLib.swapXY = nil;
+		// 	    .ScreenLib.invertX = nil;
+		// 	    .ScreenLib.invertY = nil;
+		// 	    .ScreenLib.minX = nil;
+		// 	    .ScreenLib.maxX = nil;
+		// 	    .ScreenLib.minY = nil;
+		// 	    .ScreenLib.maxY = nil;
+		// 	    .ScreenLib.resolution = nil;
+		//	    .EngineBaseLib.engine = nil;
+
+		//	    .EC.desc = nil;
+		.M1.halt = 20;
+	    }
+	    
+	    script state when state == 1 {
+		statusMsg.text = "Finding ECU";
+		statusMsg.transparency <- @ScalarInterpolator { 
+		    key = { 0.0, 1.0 }, keyValue = { statusMsg.transparency, 0.0 },
+					    value = statusMsg.transparency,
+						fraction <- @Timer { cycleInterval = 0.25 }.fraction
+												}.value;
+		wantFocus = false;
+	    }
+
+	    script state when state == 2 {
+		statusMsg.text = "Initializinng ECU communication";
+		if (statusMsg.transparency == 1.0) {
+		    statusMsg.transparency <- @ScalarInterpolator { 
+			key = { 0.0, 1.0 }, keyValue = { statusMsg.transparency, 0.0 },
+						value = statusMsg.transparency,
+						    fraction <- @Timer { cycleInterval = 0.25 }.fraction
+												    }.value;
+		}
+		wantFocus = false;
+	    }
+
+	    script state when state == 3 {
+		statusMsg.text = "done";
+		statusMsg.transparency <- @ScalarInterpolator { 
+		    key = { 0.2, 0.4, 0.6, 0.8, 1.0 }, 
+		    keyValue = { 0.0, 0.0, 0.0, 0.3, 1.0 },
+		    value = statusMsg.transparency,
+		    fraction <- @Timer { cycleInterval = 3.0 }.fraction
+		}.value;
+		wantFocus = true;
+	    }
+
+ 	    script state when state == 4 {
+ 		Slot slot;
+		// 		printf("State = 4 setup=[%d] %s\n", setup, sender(state));
+ 		foreach slot in slots[resInd] {
+		    Layer tmp;
+		    if (slot.gauges != nil)
+			foreach tmp in slot.gauges.children {
+			    @GaugeDDS(tmp).cProfile = @GaugeDDS(tmp).cProfile;
+			}
+		    if (slot.bottom != nil)
+			foreach tmp in slot.bottom.children {
+			    @GaugeDDS(tmp).cProfile = @GaugeDDS(tmp).cProfile;
+			}
+
+ 		}
+ 	    }
+
+
+	    script fcSelected when fcSelected != -1 {
+		bool found = false;
+		foreach i in [ 0 : size(faciaColors) - 1] {
+		    if (faciaColors[i].value == fcSelected) {
+			*labelColor = faciaColors[i].labelColor;
+			*labelTransparency = faciaColors[i].labelTransparency;
+
+			*digitColor = faciaColors[i].digitColor;
+			*digitTransparency = faciaColors[i].digitTransparency;
+
+			fcSelectedDB.value = fcSelected;
+			//		    printf("Found it\n");
+			found = true;
+			break;
+		    }
+		}
+	 
+		if (!found) {
+		    fcSelectedDB.value = faciaColors[0].value;
+		    labelColor = faciaColors[0].labelColor;
+		    labelTransparency = faciaColors[0].labelTransparency;
+		    digitColor = faciaColors[0].digitColor;
+		    digitTransparency = faciaColors[0].digitTransparency;
+		    printf("Defaulted facia color selection to[%d]\n", faciaColors[0].value);
+		}
+	    }
+
+	    script fgSelected when fgSelected != -1{
+		bool found = false;
+		foreach i in [ 0 : size(fgMaterials) - 1 ] {
+		    if (fgMaterials[i].value == fgSelected) {
+			cfgMaterial = fgMaterials[i].fileNameComponent ;
+			fgSelectedDB.value = fgSelected;
+			found = true;
+			break;
+		    }
+		}
+	 
+		if (!found) {
+		    cfgMaterial = fgMaterials[0].fileNameComponent;
+		    fgSelectedDB.value = fgMaterials[0].value;
+		    printf("Defaulted foreground selection to[%d]\n", fgMaterials[0].value);
+		}
+	    }
+
+
+	    script bgSelected when bgSelected != -1{
+		bool found = false;
+		//		printf("New background %d/%s\n", bgSelected, sender(bgSelected));
+		foreach i in [ 0 : size(bgMaterials) - 1] {
+		    if (bgMaterials[i].value == bgSelected) {
+			cbgMaterial = bgMaterials[i].fileNameComponent;
+			bgSelectedDB.value = bgSelected;
+			found = true;
+			break;
+		    }
+		}
+	 
+		if (!found) {
+		    cbgMaterial = bgMaterials[0].fileNameComponent;
+		    bgSelectedDB.value = bgMaterials[0].value;
+		    printf("Defaulted background selection to[%d]\n", bgMaterials[0].value);
+		}
+	    }
+
+	    //
+	    // Activate skin of skin
+	    //
+	    script setup when setup {
+		int slot_ind = 0; // Child index of each slot.
+
+		//		printf("SkinLib:Base:setup(): called from %s\n", sender(setup));
+		children = {};
+		children += skinUnderlay;
+		//
+		// Traverse all slots of the current resulution and install the instrument layers
+		//
+		foreach slot_ind in [ 0 : size(slots[resInd]) - 1 ] {
+		    Layer child;
+// 		    printf("SLOT: top[%f] left[%f] height[%f] width[%f] WantFocus[%d] exclusiveFocus[%d]\n",
+// 			 nn  slots[resInd][slot_ind].top, 
+// 			   slots[resInd][slot_ind].left, 
+// 			   slots[resInd][slot_ind].height, 
+// 			   slots[resInd][slot_ind].width, 
+// 			   slots[resInd][slot_ind].wantFocus, 
+// 			   slots[resInd][slot_ind].exclusiveFocus);
+
+		    //
+		    // Install instruments if supported by the skin.
+		    // 
+		    slots[resInd][slot_ind].channel = nil; // Load from DB, or use 0 (RPM) as default.
+		    slots[resInd][slot_ind].slotID = slot_ind; // Setup a unique index for this slot in this skin
+		    children += slots[resInd][slot_ind];
+		}
+		children += skinOverlay;
+		manager.skinSetupComplete = true;
+	    }
+
+	
+	    script fcSubMenuSelectedOption {
+		foreach i in [ 0 : size(faciaColors) - 1 ] {
+		    if (fcSubMenuSelectedOption == faciaColors[i].value) {
+			*fcSelected = fcSubMenuSelectedOption;
+			*fcMenu.show = false;
+		    }
+		}
+		fcSubMenuSelectedOption <- nil;
+		fcMenu = nil;
+	    }
+
+	    script bgSubMenuSelectedOption {
+		foreach i in [ 0 : size(bgMaterials) - 1] {
+		    if (bgSubMenuSelectedOption == bgMaterials[i].value) {
+			*bgSelected = bgSubMenuSelectedOption;
+			*bgMenu.show = false;
+		    }
+		}
+		bgSubMenuSelectedOption <- nil;
+		bgMenu = nil;
+	    }
+
+	    script fgSubMenuSelectedOption {
+		foreach i in [ 0 : size(fgMaterials) - 1 ] {
+		    if (fgSubMenuSelectedOption == fgMaterials[i].value) {
+			*fgSelected = fgSubMenuSelectedOption;
+			*fgMenu.show = false;
+		    }
+		}
+		fgSubMenuSelectedOption <- nil;
+		fgMenu = nil;
+	    }
+
+	    script selectedOption {
+		printf("Skin[%s]:selectedOption[%d]\n", name, selectedOption);
+
+
+		//
+		// ModeMenu
+		//
+		if (selectedOption == 10000) {
+		    manager.setupModeMenu = true;
+		}
+
+
+		//
+		// Background...
+		//
+		if (selectedOption == 10001) {
+		    bgMenu = @:GUI:MenuDialog { };
+
+		    foreach i in [ 0 : size(bgMaterials) - 1] {
+			bgMenu.options.entries[size(bgMenu.options.entries)] = copy(bgMaterials[i]);
+
+			// Gray out current entry.
+			if (bgMaterials[i].value == bgSelectedDB.value) 
+			    bgMenu.options.entries[size(bgMenu.options.entries) - 1].value = -1; 			
+		    }
+		    bgSubMenuSelectedOption <- bgMenu.options.selected;
+		    bgMenu.show = true;
+		}
+
+		//
+		// Facia Colors colors...
+		//
+		if (selectedOption == 10003) {
+
+		    fcMenu = @:GUI:MenuDialog { };
+
+		    foreach i in [ 0 : size(faciaColors) - 1] {
+			fcMenu.options.entries[size(fcMenu.options.entries)] = copy(faciaColors[i]);
+
+			// Gray out current entry.
+			if (faciaColors[i].value == fcSelectedDB.value) 
+			    fcMenu.options.entries[size(fcMenu.options.entries) - 1].value = -1; 			
+		    }
+		    fcSubMenuSelectedOption <- fcMenu.options.selected;
+		    fcMenu.show = true;
+		}
+
+		//
+		// Foreground
+		//
+		if (selectedOption == 10002) {
+		    fgMenu = @:GUI:MenuDialog { };
+
+		    foreach i in [ 0 : size(fgMaterials) - 1] {
+			fgMenu.options.entries[size(fgMenu.options.entries)] = copy(fgMaterials[i]);
+
+			// Gray out current entry./
+			if (fgMaterials[i].value == fgSelectedDB.value) 
+			    fgMenu.options.entries[size(fgMenu.options.entries)- 1].value = -1;
+		    }
+		    fgSubMenuSelectedOption <- fgMenu.options.selected;
+		    *fgMenu.show = true;
+		}
+
+
+	    }
+
+	    script skinUnderlay when skinUnderlay != nil {
+		foreach i in [ 0 : size(skinUnderlay.children) - 1] {
+		    ResMaterialDDS tmp = @ResMaterialDDS(skinUnderlay.children[i]);
+		
+		    if (tmp != nil) {
+			tmp.ddsFile <- ( sprintf(tmp.ddsFileFormat, sprintf("%dx%d", @int(.ScreenLib.xRes), @int(.ScreenLib.yRes)), cbgMaterial) ); 
+		    }
+		}
+	    }
+
+	    script skinOverlay when skinOverlay != nil {
+		foreach i in [ 0 : size(skinOverlay.children) - 1] {
+		    ResMaterialDDS tmp = @ResMaterialDDS(skinOverlay.children[i]);
+		
+		    if (tmp != nil) {
+			tmp.ddsFile <- ( sprintf(tmp.ddsFileFormat, sprintf("%dx%d", @int(.ScreenLib.xRes), @int(.ScreenLib.yRes)), cbgMaterial) ); 
+		    }
+		}
+	    }
+
+	    script destroy when destroy {
+		int res_ind;
+		int ind;
+		//		printf("SkinLib:Base:destroy(%s): Called from %s\n", name, sender(destroy));
+
+		// Delete every slot
+		foreach res_ind in [0:size(slots)-1] {
+		    foreach ind in [0:size(slots[res_ind])-1] {
+			slots[res_ind][ind].selectedOption = -1;
+		    }
+		}
+		slots = {};
+		children = {};
+		fcSubMenuSelectedOption <- nil;
+		bgSubMenuSelectedOption <- nil;
+		fgSubMenuSelectedOption <- nil;
+
+		if (skinUnderlay != nil) {
+		    foreach i in [ 0 : size(skinUnderlay.children) - 1] {
+			ResMaterialDDS tmp = @ResMaterialDDS(skinUnderlay.children[i]);
+		
+			if (tmp != nil) {
+			    tmp.ddsFile <- nil;
+			    tmp.top <- nil;
+			    tmp.left <- nil;
+			    tmp.width <- nil;
+			    tmp.height <- nil;
+			}
+		    }
+		    skinUnderlay.top <- nil;
+		    skinUnderlay.left <- nil;
+		    skinUnderlay.width <- nil;
+		    skinUnderlay.height <- nil;
+		    skinUnderlay.children = {};
+		    skinUnderlay = nil;
+		}
+
+		if (skinOverlay != nil) {
+		    foreach i in [ 0 : size(skinOverlay.children) - 1] {
+			ResMaterialDDS tmp = @ResMaterialDDS(skinOverlay.children[i]);
+		
+			if (tmp != nil) {
+			    tmp.ddsFile <- nil;
+			    tmp.ddsFile <- nil;
+			    tmp.top <- nil;
+			    tmp.left <- nil;
+			    tmp.width <- nil;
+			    tmp.height <- nil;
+			}
+		    }
+		    skinOverlay.top <- nil;
+		    skinOverlay.left <- nil;
+		    skinOverlay.width <- nil;
+		    skinOverlay.height <- nil;
+		    skinOverlay.children = {};
+		    skinOverlay = nil;
+		}
+		height <- nil;
+		width <- nil;
+		state <- nil;
+		children = {};
+		fgMaterials = nil;
+		bgMaterials = nil;
+		faciaColors = nil;
+		templates = {};
+		fgSelectedDB = nil;
+		bgSelectedDB = nil;
+		fcSelectedDB = nil;
+		bgMenu = nil;
+		fgMenu = nil;
+		fcMenu = nil;
+		menu = nil;
+		manager = nil;
+		//		statusMsg = nil;
+		message <- nil;
+		message = nil;
+// 		printf("Left:\n%p\n\n\n\n", this);
+// 		printf("Refcount[%d]\n", refcount(this));
+	    }
+
+	    script ~Base 
+	    {
+		//		printf("SkinLib:Base:~Base(%s): Called\n", name);
+	    }
+
+	    script Base {
+		//		printf("SkinLib::Base(): Called[%s]\n", name);
+		//
+		// Setup children to instrument_children.
+		// Also blank out all children except first.
+		// 
+		wantFocus = true;
+		transparency = 0.0;
+		height <- .ScreenLib.yRes;
+		width <- .ScreenLib.xRes;
+		height = .ScreenLib.yRes;
+		width = .ScreenLib.xRes;
+		//	printf("----Skin: [%s/%d]\n", ident.text, ident.value);
+		//	printf("----Skin: [%s/%d] bg[%p]\n", ident.text, ident.pvalue, skinUnderlay);
+		children = { }; // set by setup
+
+		top = 0;
+		left = 0;
+
+		//
+		// Tie engine state to our local variable.
+		//
+		state <- .EngineBaseLib.engine.state;
+		*state = .EngineBaseLib.engine.state;
+		resInd = @int(.ScreenLib.wideScreen); // Faster access
+
+		fgSelectedDB = Psigned { key = sprintf("skinbase.%s.fgMaterial", name), value = 0 };
+		bgSelectedDB = Psigned { key = sprintf("skinbase.%s.bgMaterial", name), value = 0 };
+		fcSelectedDB = Psigned { key = sprintf("skinbase.%s.faciaColor", name), value = 0 };
+		*bgSelected = bgSelectedDB.value;
+		*fgSelected = fgSelectedDB.value;
+		*fcSelected = fcSelectedDB.value;
+		menu = .GUI.popupMenu;
+	    }
+	};
+
+	//
+	// END OF BASE
+	// CONTINUE MANAGER
+	//
+	event Base skin= nil; // Assigned by SkinProducer subclasses.
+	Base oldSkin = nil; // Previous skin that needs to be destroyed.
+	Pstring selectedSkinDB = Pstring { key = "skinbase.selected", value = "" };
+	event bool wideScreen <- .ScreenLib.wideScreen;
+	Layer blankout = nil; // Used to blank out screen between mode switches.
+	event bool produceNewSkin = false; // Triggered when screen has been blanked out
+	type Producer {
+	    event bool produce = false;
+	    Manager manager = nil;
+	    :GUI:Option ident = nil; // To be used by SkinManager menu system.
+
+	    script produce when produce {
+		produce = false;
+	    }
+	};
+
+	Producer producers[] = {}; // All producers in SkinManager. Do not add to this one
+	event int modeMenuSelection;
+	:GUI:MenuDialog modeMenu;
+
+	//
+	// Start of Manager scripts
+	//
+
+	// Switch to/from widescreen
+	script wideScreen when skin != nil && wideScreen != skin.resInd {
+	    //	    printf("widescreen switch [%d/%d].\n", wideScreen, skin.resInd);
+
+	    *modeMenuSelection = -1; // Reload current skin.
+	}
+
+	script skinSetupComplete when skinSetupComplete {
+	    //	    printf("Manager:skinSetupComplete\n");
+	    skinSetupComplete = false;
+	    blankout.transparency <- @Timer{ cycleTime = 0.2 }.fraction;
+	}
+
+	script produceNewSkin when produceNewSkin {
+	    Producer p;
+	    //	    printf("Manager: produceNewSkin()\n");
+	    produceNewSkin = false;
+	    foreach p in producers {
+		if (modeMenuSelection == p.ident.value) 
+		    p.produce = true;
+	    }
+	}
+
+	//
+	// A menu option has been selected. Is it one of the producers?
+	//
+	script modeMenuSelection when modeMenuSelection != -1 {
+	    Timer t_out;
+	    //	    printf("SkinLib:Manager:selectedOption(%d): Called\n", modeMenuSelection);
+
+	    t_out = @Timer{ cycleTime = 0.2 };
+	    blankout.transparency <- (1.0 - t_out.fraction);
+
+	    produceNewSkin <- (1 - t_out.active);
+	    modeMenuSelection <- nil;
+	    modeMenu.show = false;
+	    modeMenu = nil;
+	}
+
+	//
+	// Create skin stored in DB.
+	//
+	script modeMenuSelection when modeMenuSelection == -1 && size(producers) > 0 {
+	    Producer p;
+	    int i = 0;
+	    bool produced = false;
+	    //	    printf("SkinLib:Manager:selectedOption(-1): Called from [%s]. Will find skin [%s]\n", 
+	    //		   sender(modeMenuSelection), selectedSkinDB.value);
+	    foreach p in producers {
+		p.ident.value = i; // Assign a unique ID.
+		++i;
+		if (p.manager == nil)
+		    p.manager = this;
+		//		printf("   Checking [%s] - ", p.ident.text);
+		
+		if (p.ident.text == selectedSkinDB.value)  {
+		    p.produce = true;
+		    produced = true;
+		    //		    printf("hit\n");
+		} 
+		//		else
+//		    printf("no hit\n");
+	    }
+	    // Go for default value if no hit.
+	    if (!produced)
+		producers[0].produce = true;
+	}
+
+	// 
+	// Install all menu options
+	// 
+	script setupModeMenu when setupModeMenu && size(producers) > 0 {
+	    Producer p;
+	    //	    printf("SkinLib:Manager:setupModeMenu(): Called\n");
+	    setupModeMenu = false;
+	    modeMenu = @:GUI:MenuDialog { show = true }; // Mode menu.
+
+	    foreach p in producers {
+
+		if (skin != nil  && p.ident.text == skin.name)
+		    modeMenu.options.entries += @:GUI:Option { value = -1, text = skin.name };
+		else 
+		    modeMenu.options.entries += p.ident;
+		
+		if (p.manager == nil)
+		    p.manager = this;
+	    }
+	    modeMenuSelection <- modeMenu.options.selected;
+	}
+
+	// Skin swap is managed here.
+	script skin when skin != nil  && !skin.setup {
+	    //	    printf("SkinLib:Manager:skin() Called\n");
+	    if (oldSkin != nil) 
+		oldSkin.destroy = true;
+
+	    children[0] = skin;
+	    skin.manager = this; 
+	    // If ECU comm is up and running, setup skin now.
+	    // Else defer until we have state == 4.
+	    skin.setup = true;
+	    oldSkin = skin;
+	    // Remember which skin we are in.
+	    selectedSkinDB.value = skin.name;
+	}
+
+	script Manager {
+	    blankout = @Layer { 
+		top = 0, 
+		left = 0,
+		height <- .ScreenLib.screen.height, 
+		width <- .ScreenLib.screen.width, 
+		background = true,
+		backgroundColor = 0x101010,
+		transparency = 1.0
+	    };
+	    children = {
+		nil,
+		.GUI.popupMenu,
+		modeMenu,
+		statusMsg,
+		blankout
+	    };
+
+	    width <- .ScreenLib.screen.width;
+	    width = .ScreenLib.screen.width;
+
+	    height <- .ScreenLib.screen.height;
+	    height = .ScreenLib.screen.height;
+	    wantFocus = true;
+	    messageMask = @Message.message_mask_button;
+	}
+    };
+    
+
+    Manager manager = @Manager{}; // Global ref for all skins to register in.
+
+    // Setup a skin manager.
+    .ScreenLib.screen.children[0] = manager;
+}

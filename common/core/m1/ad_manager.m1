@@ -1,0 +1,376 @@
+// -*- c++ -*-
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007, 2008
+//
+
+
+//
+// Library to manage all A/D converter devices and their channels
+//
+// The load order is:
+// ad_sensor.m1 - Load base class declarations and sensor setups.
+// [specific ad dev files]. - Load implementations for zt2, lc1 etc.
+// 
+//
+library ADManager {
+
+    //
+    // List over all USB devices.
+    // All DeviceHandlerProducers will set their collection to point to this device.
+    //
+    :ADLib:Device usbDevices[] = {};
+
+    //
+    // USB device manager that will trigger on the addition
+    // or removal of tty devices.
+    //
+    DeviceManager usbManager = @DeviceManager {
+	fifoPath = "/dev/ttyusb_fifo"
+    };
+
+    //
+    // Setup A/D channels dialog.
+    //
+    type SetupADChannelsDialog: :GUI:DoneDialog {
+        public DDS @:GUI:DoneDialog.bgDDS = .GUI.dlg_bg_497x360;
+
+ 	//
+ 	// Devices available
+ 	//
+ 	:GUI:SpinField dev_field = :GUI:SpinField { 
+	    textField = @Text {
+		fontName = .GUI.systemFont,
+		fontSize = 28,
+		fontWeight = medium,
+		fontColor = 0xCCCCCC
+	    },
+  	    entries = {},
+  	    top = 30,
+  	    left = 100,
+
+  	    width = 360,
+	    height = 40,
+	    sideArrows = true
+  	};
+
+ 	//
+ 	// Channels available
+ 	//
+ 	:GUI:SpinField ad_chan_field = :GUI:SpinField { 
+	    textField = @Text {
+		fontName = .GUI.systemFont,
+		fontSize = 28,
+		fontWeight = medium,
+		fontColor = 0xCCCCCC
+	    },
+  	    entries = {},
+  	    top = 100,
+  	    left = 100,
+
+  	    width = 360,
+	    height = 40,
+	    sideArrows = true
+  	};
+
+ 	//
+ 	// Sensors available for a specific channel
+ 	//
+ 	:GUI:SpinField sensor_field = :GUI:SpinField { 
+	    textField = @Text {
+		fontName = .GUI.systemFont,
+		fontSize = 28,
+		fontWeight = medium,
+		fontColor = 0xCCCCCC
+	    },
+  	    entries = { 
+  	    },
+  	    top = 170,
+  	    left = 100,
+  	    width = 360,
+	    height = 40,
+	    sideArrows = true
+  	};
+
+ 	//
+ 	// Labels available for a specific channel
+ 	//
+ 	:GUI:SpinField eng_label_field = :GUI:SpinField { 
+	    textField = @Text {
+		fontName = .GUI.systemFont,
+		fontSize = 28,
+		fontWeight = medium,
+		fontColor = 0xCCCCCC
+	    },
+  	    entries = { 
+  	    },
+  	    top = 240,
+  	    left = 100,
+  	    width = 360,
+	    height = 40,
+	    sideArrows = true
+  	};
+
+	//
+	// Label in front of device
+	//
+	Text dev_label = @Text {
+	    fontName = .GUI.systemFont,
+	    fontSize = 24,
+	    fontWeight = medium,
+	    fontColor = 0xCCCCCC,
+	    top = 35,
+	    left = 0,
+	    text = "device"
+	};
+
+	//
+	// Label in front of channel nr
+	//
+	Text channel_label = @Text {
+	    fontName = .GUI.systemFont,
+	    fontSize = 24,
+	    fontWeight = medium,
+	    fontColor = 0xCCCCCC,
+	    top = 105,
+	    left = 0,
+	    text = "chan"
+	};
+
+	//
+	// Label in front of channel nr
+	//
+	Text sensor_label = @Text {
+	    fontName = .GUI.systemFont,
+	    fontSize = 24,
+	    fontWeight = medium,
+	    fontColor = 0xCCCCCC,
+	    top = 175,
+	    left = 0,
+	    text = "sensor"
+	};
+
+	//
+	// Label in front of channel nr
+	//
+	Text label_label = @Text {
+	    fontName = .GUI.systemFont,
+	    fontSize = 24,
+	    fontWeight = medium,
+	    fontColor = 0xCCCCCC,
+	    top = 245,
+	    left = 0,
+	    text = "label"
+	};
+
+
+	//
+	// Sensor descriptors
+	//
+	type ADOption: :GUI:Option{
+	    ADOption subOptions[];
+	};
+
+	//  Will be initialized in constructor.
+	// The top level devices contains all ad-devices hooked up to the system.
+	// The subOptions tree under devices is as follows
+	// Level 1: All channels under each device.
+	// Level 2: All allowed sensor types under each channel.
+	// Level 3: All allowed labels (engine channels) allowed for each sensor type.
+	ADOption devices[]; 
+ 	event int new_dev = 0;
+ 	event int new_chan = 0;
+ 	event int new_sensor = 0;
+ 	event int new_eng_label = 0;
+	int cur_dev = -1;
+	int cur_chan = -1;
+	int cur_sensor = -1;
+	int cur_eng_label = -1;
+
+	script new_dev {
+	    printf("New device [%d/%d]\n", new_dev, size(devices));
+	    //
+	    // Save existing settings.
+	    //
+	    if (cur_dev != -1) {
+		printf("Device: Will store old sensor type and label\n");
+		usbDevices[cur_dev].channels[cur_chan].sensorTypeDB.value = sensor_field.selected;
+		usbDevices[cur_dev].channels[cur_chan].engineLabelDB.value = eng_label_field.selected;
+	    }
+	    cur_dev = new_dev;
+		
+	    if (size(devices) > 0) {
+		ad_chan_field.entries = devices[new_dev].subOptions;
+		ad_chan_field.index = 0;
+	    }
+	    else {
+		ad_chan_field.entries = {};
+		ad_chan_field.index = 0;
+	    }
+	}
+
+	script new_chan {
+	    // Deactivate if necessary
+	    printf("New channel dev[%d] chan[%d]\n", new_dev, new_chan);
+	    if (cur_chan != -1) {
+		printf("Channel: Will store old sensor type and label for dev[%d/%d] chan[%d/%d]\n", 
+		       cur_dev, size(usbDevices),
+		       cur_chan, size(usbDevices[cur_dev].channels));
+		printf("Sensor [%s - %d]\n", 
+		       usbDevices[cur_dev].channels[cur_chan].sensorTypeDB.key,
+		       sensor_field.selected);
+		printf("Label  [%s - %d]\n", 
+		       usbDevices[cur_dev].channels[cur_chan].engineLabelDB.key,
+		       eng_label_field.selected);
+		usbDevices[cur_dev].channels[cur_chan].sensorTypeDB.value = sensor_field.selected;
+		usbDevices[cur_dev].channels[cur_chan].engineLabelDB.value = eng_label_field.selected;
+	    }
+
+	    cur_chan = new_chan;
+
+	    sensor_field.entries = devices[new_dev].subOptions[new_chan].subOptions;
+	    printf("New channel [%d/%d] Preselecting sensor[%s - %d]\n", 
+		   new_chan, size(ad_chan_field.entries), 
+		   usbDevices[new_dev].channels[new_chan].sensorTypeDB.key,
+		   usbDevices[new_dev].channels[new_chan].sensorTypeDB.value);
+
+	    if (usbDevices[new_dev].channels[new_chan].sensorTypeDB.value == -1)
+		sensor_field.index = 0;
+	    else
+		sensor_field.selected = usbDevices[new_dev].channels[new_chan].sensorTypeDB.value;
+	}
+
+	script new_sensor {
+	    printf("New sensor [%d/%d] Preselecting label[%d]\n", 
+		   new_sensor, 
+		   size(sensor_field.entries), 
+		   usbDevices[new_dev].channels[new_chan].engineLabelDB.value);
+
+	    eng_label_field.entries = devices[new_dev].subOptions[new_chan].subOptions[new_sensor].subOptions;
+
+	    if (size(eng_label_field.entries)) {
+		eng_label_field.index = 0;
+	    } else {
+		eng_label_field.index = -1;
+	    }
+	    
+	}
+	
+	script new_eng_label {
+	    printf("New engine label [%d/%d]\n", new_eng_label, size(eng_label_field.entries));
+	    if (!size(eng_label_field.entries)) {
+		eng_label_field.prev.buttonEnabled = false;
+		eng_label_field.next.buttonEnabled = false;
+	    } else {
+		eng_label_field.prev.buttonEnabled = true;
+		eng_label_field.next.buttonEnabled = true;
+	    }
+	}
+
+	script confirmed {
+	    if (cur_dev != -1 && cur_chan != -1) {
+		printf("Confirm. Will store data\n");
+		usbDevices[cur_dev].channels[cur_chan].sensorTypeDB.value = sensor_field.selected;
+		usbDevices[cur_dev].channels[cur_chan].engineLabelDB.value = eng_label_field.selected;
+	    }
+	}
+	//
+	// Fill out channel with all available data
+	//
+	script ~SetupADChannelsDialog {
+	    printf("SetupADChannelsDialog: Destroy\n");
+	}
+
+	script SetupADChannelsDialog {
+	    int dev_ind;
+
+	    // Traverse all plugged in devices.
+	    foreach dev_ind in [0:size(usbDevices)-1] {
+		int chan_ind;
+		ADOption cur_dev;
+
+		printf("SetupADChannelsDialog: [%d] Adding usb device[%s:%s]\n", 
+		       dev_ind,
+		       usbDevices[dev_ind].product, usbDevices[dev_ind].serial);
+		devices += @ADOption {
+		    text = sprintf("%s-%s", substr(usbDevices[dev_ind].product, 3, 0), usbDevices[dev_ind].serial),
+		    value = dev_ind
+		};
+
+		cur_dev = devices[dev_ind];
+		printf("Device: %s\n", devices[size(devices)-1].text);
+		//
+		// Traverse all channels of the given devices
+		//
+		foreach chan_ind in [0:size(usbDevices[dev_ind].channels)-1] {
+		    ADOption cur_chan;
+		    int sety_ind;
+		    //
+		    // Create new channel
+		    //
+		    cur_dev.subOptions += @ADOption {
+			text = sprintf("%s", usbDevices[dev_ind].channels[chan_ind].name),
+			value = chan_ind
+		    };
+		    cur_chan = cur_dev.subOptions[chan_ind];
+		    //		    printf("  Channel: %s\n", cur_dev.subOptions[size(cur_dev.subOptions)-1].text);
+		    //
+		    // Traverse all sensors for the given channel
+		    //
+		    foreach sety_ind in [0:size(usbDevices[dev_ind].channels[chan_ind].sensorTypes)-1] {
+			int lbl_ind;
+			ADOption cur_sety;
+
+			//
+			// Add sensor type.
+			//
+			cur_chan.subOptions += @ADOption {
+			    text = sprintf("%s", .ADLib.sensorTypes[usbDevices[dev_ind].channels[chan_ind].sensorTypes[sety_ind]].name),
+			    value = usbDevices[dev_ind].channels[chan_ind].sensorTypes[sety_ind]
+			};
+// 			printf("    Sensor Type: %s/%d\n", 
+// 			       cur_chan.subOptions[size(cur_chan.subOptions)-1].text, 
+// 			       usbDevices[dev_ind].channels[chan_ind].sensorTypes[sety_ind]);
+			cur_sety = cur_chan.subOptions[sety_ind];
+			
+			//
+			// Traverse all labels (engine channel) for the given sensor type.
+			//
+			foreach lbl_ind in [0:size(.ADLib.sensorTypes[usbDevices[dev_ind].channels[chan_ind].sensorTypes[sety_ind]].engineChannels)-1] {
+			    //
+			    // Add sensor type.
+			    //
+			    cur_sety.subOptions += @ADOption {
+				text = sprintf("%s", 
+					       .EC.desc[.ADLib.sensorTypes[usbDevices[dev_ind].channels[chan_ind].sensorTypes[sety_ind]].engineChannels[lbl_ind]].name),
+				value = .ADLib.sensorTypes[usbDevices[dev_ind].channels[chan_ind].sensorTypes[sety_ind]].engineChannels[lbl_ind]
+			    };
+// 			    printf("      Label: %s/%d\n", 
+// 				   cur_sety.subOptions[size(cur_sety.subOptions)-1].text,
+// 				   .ADLib.sensorTypes[usbDevices[dev_ind].channels[chan_ind].sensorTypes[sety_ind]].engineChannels[lbl_ind]);
+			}
+		    }
+		}
+	    }
+	    
+	    dev_field.entries = devices;
+	    dev_field.index = 0;
+	    new_dev <- dev_field.index;
+	    new_chan <- ad_chan_field.index;
+	    new_sensor <- sensor_field.index;
+	    new_eng_label <- eng_label_field.index;
+
+	    scrollPane.children = {
+		dev_field,
+		ad_chan_field,
+		sensor_field,
+		eng_label_field,
+		dev_label,
+		channel_label,
+		sensor_label,
+		label_label
+	    };
+	}
+     };
+
+}

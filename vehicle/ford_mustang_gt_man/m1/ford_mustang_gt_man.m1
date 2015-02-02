@@ -1,0 +1,45 @@
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+//
+// Add a Ford Mustang GT spec.
+// MAP_GUAGE --------------------- 000B 
+// MANIFOLD ABSOLUTE PRESSURE ---- 0900  or 16A9
+// FUELPW1/FUELPW2---------------- 1141 - 1142
+//
+int ind = size(.EngineBaseLib.engine.vehicleProfiles);
+
+type FordMustangGT: :EngineBaseLib:VehicleProfile {
+    make = "Ford";
+    model = "Mustang GT";
+    imageFile = "dds/ford_mustang_gt_man.png";
+    startYear = 2006;
+    stopYear = 2008; // Unknown.
+    gearType = 1; // manual
+    curbWeight = 1663; // Curb weight + driver.
+    length = 477; // In cm.
+    width = 188;
+    height = 138;
+    wheelBase = 0;
+    displacement = 460; // cubic centimetres. 
+    cylinders = 8;
+    cylinderConfig = 2; // V engine.
+    obdIIProtocol = 0; // ISO9141 preset does not yet work.
+    gearCount = 5;
+    tireWidth = 235;
+    tireSidewallRatio = 55;
+    tireRimDiameter = 17;
+
+    chanProf[.EC.rpm].max = 8000;    
+    chanProf[.EC.rpm].maxWarn = 5750;    
+    chanProf[.EC.rpm].maxCritical = 6000;   
+};
+
+.EngineBaseLib.engine.vehicleProfiles[ind] = @FordMustangGT {};
+
+if (.EngineBaseLib.engine.currentVehicleProfile == -1)
+    .EngineBaseLib.engine.currentVehicleProfile = 0;
+

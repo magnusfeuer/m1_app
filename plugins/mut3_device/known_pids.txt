@@ -1,0 +1,382 @@
+The wiki would be a little too difficult to get online, but I'll work on one and move this specific stuff off to it..
+
+Anyway..
+
+MUT logging you can use 15625 baud, for OBD-II use 10400 baud if the port supports it.. Otherwise 15625 should work also. timouts for non-response on the port should be about 500ms
+
+for the MUT Logging..
+
+You send a 0x01 at 5 baud
+
+Do this using the serial port (or FT2xx calls) break signal on for 200ms turn it off, then wait for 1800ms plus about 150ms for a reply.. (this will basically send a 0x01 byte at 5 baud without setting or initializing the interface and risk missing the reply) Bit Banging is what its typically called, and in doing this you basically set the tx signal high for the duration you tell it..
+
+For OBD-II you have to wait for a 0x33 reply packet, I think its 4-6 bytes long and you can start sending standard OBD-II conversation packets and keepalives. But
+
+
+for MUT-II send this sequence of bytes while waiting for replies between each byte, the replies can be discarded however..
+
+0xFE
+0xFF
+0xFE
+0xFF
+0xFD
+0xFD
+0xFD
+
+Following that just for MUT just send a REQUESTID value (0x21 for RPM) the sent value needs to be converted to an integer!
+
+The response will be Two bytes, as far as I can tell the significant byte is the second character in the response, you can convert it to its ascii integer value asc(x) and then run the conversion algorithm on it to get the appropriate value (for instance RPM is 31.25x) For relay state data, its a value representing the bitmap, etc.. Not sure if any other replies are longer...
+
+Even the sample VB code is easy to convert to C++ since the headers for C++ are almost identical to the headers in the VB.NET module.. Even Java can do this..
+
+-----------------
+
+
+This is an informational file, used for reference if you need to add/modify/remove items
+from RequestID.XML
+-----------------------------------------------------------------------------------------
+
+06 TimingAdv		Eval="x-20" Unit="deg"
+07 CoolantTemp		Eval="-0.0003893*x^3+0.08056*x^2-6.5226*x+315.73" Unit="deg F"
+
+0C FuelTrim_Low		Eval="int(.1961*x)-25" Unit="%"
+0D FuelTrim_Middle	Eval="int(.1961*x)-25" Unit="%"
+0E FuelTrim_High	Eval="int(.1961*x)-25" Unit="%"
+
+0F O2FeedbackTrim	Eval="int(.1961*x)-25" Unit="%"
+
+12 EGRTemp			Eval="-2.7*x + 597.7" Unit="deg F"
+13 O2Sensor			Eval="0.0195*x" Unit="V"
+14 Battery			Eval="0.0733*x" Unit="V"
+15 Baro				Eval="x/2" Unit="kPa"
+16 ISCSteps			Eval="x" Unit="steps"
+17 TPS				Eval="100*x / 255" Unit="%"
+
+1A AirFlow			Eval="6.29*x" Unit="Hz"
+
+1C ECULoad			Eval="5*x/8" Unit="%"
+1D AccelEnrich		Eval="100*x / 255" Unit="%"
+
+1F O2SensorRear		Eval="0.0195*x" Unit="V"
+
+21 RPM				Eval="int(31.25*x)" Unit="rpm"
+
+
+24 TargetIdle		Eval="7.8*x" Unit="RPM"
+
+26 KnockSum			Eval="x" Unit="count"
+27 OCTNumber		Eval="x" Unit="Int"
+
+29 InjPulseWidth	Eval="0.256*x" Unit="ms"
+
+2C AirVol			Eval="x" Unit="Int"
+
+2F Speed			Eval="(2*x)*0.621371192" Unit="MPH"
+
+
+30 Knock			Eval="x" Unit="count"
+
+32 AFRMAP			Eval="x" Unit="Int"
+
+38 MDP				Eval="1.25*x" Unit="%"
+
+3A AirTemp			Eval="-0.00000003166*x^5+0.00001425*x^4-0.002490*x^3+0.2143*x^2-10.279*x+361.01" Unit="deg F"
+
+6A KnockADC			Eval="x" Unit="Int"
+6B KnockBase		Eval="x" Unit="Int"
+6C KnockVar			Eval="x" Unit="Int"
+6D KnockChange		Eval="x" Unit="Int"
+6E KnockDynamics	Eval="x" Unit="Int"
+6F KnockFlag		Eval="x" Unit="Int"
+
+86 WGDC				Eval="x*100/255" Wastegate duty cycle
+
+
+06 TimingAdv Eval="x-20" Unit="deg"
+07 CoolantTemp Eval="-0.0003893*x^3+0.08056*x^2-6.5226*x+315.73" Unit="deg F"
+
+0C FuelTrim_Low Eval="int(.1961*x)-25" Unit="%"
+0D FuelTrim_Middle Eval="int(.1961*x)-25" Unit="%"
+0E FuelTrim_High Eval="int(.1961*x)-25" Unit="%"
+
+0F O2FeedbackTrim Eval="int(.1961*x)-25" Unit="%"
+
+12 EGRTemp Eval="-2.7*x + 597.7" Unit="deg F"
+13 O2Sensor Eval="0.0195*x" Unit="V"
+14 Battery Eval="0.0733*x" Unit="V"
+15 Baro Eval="x/2" Unit="kPa"
+16 ISCSteps Eval="x" Unit="steps"
+17 TPS Eval="100*x / 255" Unit="%"
+
+1A AirFlow Eval="6.29*x" Unit="Hz"
+
+1C ECULoad Eval="5*x/8" Unit="%"
+1D AccelEnrich Eval="100*x / 255" Unit="%"
+
+1F O2SensorRear Eval="0.0195*x" Unit="V"
+
+21 RPM Eval="int(31.25*x)" Unit="rpm"
+
+
+24 TargetIdle Eval="7.8*x" Unit="RPM"
+
+26 KnockSum Eval="x" Unit="count"
+27 OCTNumber Eval="x" Unit="Int"
+
+29 InjPulseWidth Eval="0.256*x" Unit="ms"
+
+2C AirVol Eval="x" Unit="Int"
+
+2F Speed Eval="(2*x)*0.621371192" Unit="MPH"
+
+
+30 Knock Eval="x" Unit="count"
+
+32 AFRMAP Eval="x" Unit="Int"  target AFR = 14.7*128/AFRMAP  Target AFR for given load/rpm?
+
+38 MDP Eval="1.25*x" Unit="%"
+
+3A AirTemp Eval="-0.00000003166*x^5+0.00001425*x^4-0.002490*x^3+0.2143*x^2-10.279*x+361.01" Unit="deg F"
+
+6A KnockADC Eval="x" Unit="Int"
+6B KnockBase Eval="x" Unit="Int"
+6C KnockVar Eval="x" Unit="Int"
+6D KnockChange Eval="x" Unit="Int"
+6E KnockDynamics Eval="x" Unit="Int"
+6F KnockFlag Eval="x" Unit="Int"
+
+
+Feel free to post updates, fixes, and new ones that I'll add to a master list.
+
+---------------
+
+REQ_10_MUT: .data.l COOLANT_0
+ROM:0002EA24 REQ_11_MUT: .data.l AIRTEMP_CHECKED
+ROM:0002EA28 REQ_12_MUT: .data.l unk_FFFF87D4
+ROM:0002EA2C REQ_13_MUT: .data.l O2SENSOR
+ROM:0002EA30 REQ_14_MUT: .data.l BATTERY
+ROM:0002EA34 REQ_15_MUT: .data.l BAROMETR
+ROM:0002EA38 REQ_16_MUT: .data.l ICSWSTEPS
+ROM:0002EA3C REQ_17_MUT: .data.l TPS
+ROM:0002EA40 REQ_18_MUT: .data.l FLAG_IN_CL
+ROM:0002EA44 REQ_19_MUT: .data.l ERROR_FLAG
+ROM:0002EA48 REQ_1A_MUT: .data.l MAF_HZ
+ROM:0002EA4C REQ_1B_MUT: .data.l unk_FFFF8022
+ROM:0002EA50 REQ_1C_MUT: .data.l ECULOAD
+ROM:0002EA54 REQ_1D_MUT: .data.l ACCELENRICH
+ROM:0002EA58 REQ_1E_MUT: .data.l MAF_RESET_FLAG
+ROM:0002EA5C REQ_1F_MUT: .data.l LOAD11Bit4
+ROM:0002EA60 REQ_20_MUT: .data.l RPMBIBIG
+ROM:0002EA64 REQ_21_MUT: .data.l RPMSMALL
+ROM:0002EA68 REQ_22_MUT: .data.l unk_FFFF8072
+ROM:0002EA6C REQ_23_MUT: .data.l unk_FFFF8B18
+ROM:0002EA70 REQ_24_MUT: .data.l RPMBIGBIG_OLD
+ROM:0002EA74 REQ_25_MUT: .data.l unk_FFFF8B32
+ROM:0002EA78 REQ_26_MUT: .data.l KNOCKSUM
+ROM:0002EA7C REQ_27_MUT: .data.l OCTANE
+ROM:0002EA80 REQ_28_MUT: .data.l MAS_AIR
+ROM:0002EA84 REQ_29_MUT: .data.l unk_FFFF9101
+ROM:0002EA88 REQ_2A_MUT: .data.l MUT29
+ROM:0002EA8C REQ_2B_MUT: .data.l MUT2A
+ROM:0002EA90 REQ_2C_MUT: .data.l MUT2B
+ROM:0002EA94 REQ_2D_MUT: .data.l BATTERY_SM
+ROM:0002EA98 REQ_2E_MUT: .data.l SPEED_FRQ
+ROM:0002EA9C REQ_2F_MUT: .data.l SPEED
+ROM:0002EAA0 REQ_30_MUT: .data.l KNOCK_ADC
+ROM:0002EAA4 REQ_31_MUT: .data.l MAF_SMOOTHED
+ROM:0002EAA8 REQ_32_MUT: .data.l AFRMAP
+ROM:0002EAAC REQ_33_MUT: .data.l unk_FFFF8A5A
+ROM:0002EAB0 REQ_34_MUT: .data.l DIM_MASSIVE
+ROM:0002EAB4 REQ_35_MUT: .data.l unk_FFFF89B8
+ROM:0002EAB8 REQ_36_MUT: .data.l unk_FFFF8090
+ROM:0002EABC REQ_37_MUT: .data.l unk_FFFF8094
+ROM:0002EAC0 REQ_38_MUT: .data.l MDP_SENSOR
+ROM:0002EAC4 REQ_39_MUT: .data.l ADC_C
+ROM:0002EAC8 REQ_3A_MUT: .data.l AIRTEMP
+ROM:0002EACC REQ_3B_MUT: .data.l unk_FFFF881E
+ROM:0002EAD0 REQ_3C_MUT: .data.l O22sensor
+ROM:0002EAD4 REQ_3D_MUT: .data.l ADC_8
+ROM:0002EAD8 REQ_3E_MUT: .data.l ADC_7
+ROM:0002EADC REQ_3F_MUT: .data.l unk_FFFF8D1E
+ROM:0002EAE0 REQ_40_MUT: .data.l unk_FFFF8078
+ROM:0002EAE4 REQ_41_MUT: .data.l unk_FFFF807A
+ROM:0002EAE8 REQ_42_MUT: .data.l unk_FFFF807C
+ROM:0002EAEC REQ_43_MUT: .data.l unk_FFFF807E
+ROM:0002EAF0 REQ_44_MUT: .data.l unk_FFFF8080
+ROM:0002EAF4 REQ_45_MUT: .data.l unk_FFFF8082
+ROM:0002EAF8 REQ_46_MUT: .data.l unk_FFFF8084
+ROM:0002EAFC REQ_47_MUT: .data.l unk_FFFF8086
+ROM:0002EB00 REQ_48_MUT: .data.l unk_FFFF8088
+ROM:0002EB04 REQ_49_MUT: .data.l unk_FFFF808A
+ROM:0002EB08 REQ_4A_MUT: .data.l PJDR4PWM_FLAG
+ROM:0002EB0C REQ_4B_MUT: .data.l unk_FFFF8982
+ROM:0002EB10 REQ_4C_MUT: .data.l unk_FFFF8050
+ROM:0002EB14 REQ_4D_MUT: .data.l unk_FFFF8052
+ROM:0002EB18 REQ_4E_MUT: .data.l unk_FFFF8054
+ROM:0002EB1C REQ_4F_MUT: .data.l unk_FFFF894B
+ROM:0002EB20 REQ_50_MUT: .data.l unk_FFFF895A
+ROM:0002EB24 REQ_51_MUT: .data.l unk_FFFF895E
+ROM:0002EB28 REQ_52_MUT: .data.l unk_FFFF8962
+ROM:0002EB2C REQ_53_MUT: .data.l unk_FFFF8966
+ROM:0002EB30 REQ_54_MUT: .data.l unk_FFFF89BA
+ROM:0002EB34 REQ_55_MUT: .data.l unk_FFFF89BC
+ROM:0002EB38 REQ_56_MUT: .data.l MAX_MAF_FALL1
+ROM:0002EB3C REQ_57_MUT: .data.l MAX_MAF_RISE1
+ROM:0002EB40 REQ_58_MUT: .data.l AFR_MAFMULTIP
+ROM:0002EB44 REQ_59_MUT: .data.l unk_FFFF88F4
+ROM:0002EB48 REQ_5A_MUT: .data.l BAROMETR_pr1
+ROM:0002EB4C REQ_5B_MUT: .data.l BAROMETR_pr
+ROM:0002EB50 REQ_5C_MUT: .data.l unk_FFFF87EA
+ROM:0002EB54 REQ_5D_MUT: .data.l unk_FFFF87EC
+ROM:0002EB58 REQ_5E_MUT: .data.l unk_FFFF890E
+ROM:0002EB5C REQ_5F_MUT: .data.l unk_FFFF8910
+ROM:0002EB60 REQ_60_MUT: .data.l unk_FFFF802D
+ROM:0002EB64 REQ_61_MUT: .data.l unk_FFFF802F
+ROM:0002EB68 REQ_62_MUT: .data.l unk_FFFF8031
+ROM:0002EB6C REQ_63_MUT: .data.l unk_FFFF8033
+ROM:0002EB70 REQ_64_MUT: .data.l unk_FFFF8035
+ROM:0002EB74 REQ_65_MUT: .data.l unk_FFFF8037
+ROM:0002EB78 REQ_66_MUT: .data.l unk_FFFF890A
+ROM:0002EB7C REQ_67_MUT: .data.l unk_FFFF890C
+ROM:0002EB80 REQ_68_MUT: .data.l unk_FFFF8092
+ROM:0002EB84 REQ_69_MUT: .data.l unk_FFFF8096
+ROM:0002EB88 REQ_6A_MUT: .data.l KNOCK_MAIN_ADC_TRIMMED
+ROM:0002EB8C REQ_6B_MUT: .data.l KNOCKBASE
+ROM:0002EB90 REQ_6C_MUT: .data.l unk_FFFF90F4
+ROM:0002EB94 REQ_6D_MUT: .data.l KNOCK_CHANGE
+ROM:0002EB98 REQ_6E_MUT: .data.l KNOCKDYNAM
+ROM:0002EB9C REQ_6F_MUT: .data.l KNOCK_FLAG_ACCEL
+ROM:0002EBA0 REQ_70_MUT: .data.l unk_FFFF8BF8
+ROM:0002EBA4 REQ_71_MUT: .data.l SENSOR_ERROR
+ROM:0002EBA8 REQ_72_MUT: .data.l KNOCK_FLAG3
+ROM:0002EBAC REQ_73_MUT: .data.l unk_FFFF8810
+ROM:0002EBB0 REQ_74_MUT: .data.l unk_FFFF8814
+ROM:0002EBB4 REQ_75_MUT: .data.l unk_FFFF8B2C
+ROM:0002EBB8 REQ_76_MUT: .data.l unk_FFFF8B34
+ROM:0002EBBC REQ_77_MUT: .data.l unk_FFFF8BD2
+ROM:0002EBC0 REQ_78_MUT: .data.l unk_FFFF8BD0
+ROM:0002EBC4 REQ_79_MUT: .data.l INJ_LAG
+ROM:0002EBC8 REQ_7A_MUT: .data.l unk_FFFF8FEE
+ROM:0002EBCC REQ_7B_MUT: .data.l unk_FFFF8FF2
+ROM:0002EBD0 REQ_7C_MUT: .data.l unk_FFFF8FF6
+ROM:0002EBD4 REQ_7D_MUT: .data.l unk_FFFF8FFA
+ROM:0002EBD8 REQ_7E_MUT: .data.l unk_FFFF8FFE
+ROM:0002EBDC REQ_7F_MUT: .data.l unk_FFFF9000
+ROM:0002EBE0 REQ_80_MUT: .data.l MUT58
+ROM:0002EBE4 REQ_81_MUT: .data.l MUT80
+ROM:0002EBE8 REQ_82_MUT: .data.l unk_FFFF8D24
+ROM:0002EBEC REQ_83_MUT: .data.l ADC_F
+ROM:0002EBF0 REQ_84_MUT: .data.l unk_FFFF8BCA
+ROM:0002EBF4 REQ_85_MUT: .data.l PEDR_PIN8_PWM
+ROM:0002EBF8 REQ_86_MUT: .data.l BOOST_DUTY_PFDR15
+ROM:0002EBFC REQ_87_MUT: .data.l ADC_0E
+ROM:0002EC00 REQ_88_MUT: .data.l ADC_0D
+ROM:0002EC04 REQ_89_MUT: .data.l unk_FFFF882C
+ROM:0002EC08 REQ_8A_MUT: .data.l unk_FFFF8802
+ROM:0002EC0C REQ_8B_MUT: .data.l unk_FFFF8BE2
+ROM:0002EC10 REQ_8C_MUT: .data.l ADC_4
+ROM:0002EC14 REQ_8D_MUT: .data.l unk_FFFF809C
+ROM:0002EC18 REQ_8E_MUT: .data.l unk_FFFF8C26
+ROM:0002EC1C REQ_8F_MUT: .data.l unk_FFFF8C24
+ROM:0002EC20 REQ_90_MUT: .data.l unk_FFFF8C2C
+ROM:0002EC24 REQ_91_MUT: .data.l unk_FFFF8C2E
+ROM:0002EC28 REQ_92_MUT: .data.l unk_FFFF8C32
+ROM:0002EC2C REQ_93_MUT: .data.l unk_FFFF8C22
+ROM:0002EC30 REQ_94_MUT: .data.l LOADARG
+ROM:0002EC34 REQ_95_MUT: .data.l LOADARG
+ROM:0002EC38 REQ_96_MUT: .data.l LOADARG
+ROM:0002EC3C REQ_97_MUT: .data.l ADC_81
+ROM:0002EC40 REQ_98_MUT: .data.l unk_FFFF8FA7
+ROM:0002EC44 REQ_99_MUT: .data.l MUT98
+ROM:0002EC48 REQ_9A_MUT: .data.l unk_FFFF87A2
+ROM:0002EC4C REQ_9B_MUT: .data.l unk_FFFF87A6
+ROM:0002EC50 REQ_9C_MUT: .data.l MAF_CRAP
+ROM:0002EC54 REQ_9D_MUT: .data.l unk_FFFF8D04
+ROM:0002EC58 REQ_9E_MUT: .data.l PEDRPIN8PWMOUT
+ROM:0002EC5C REQ_9F_MUT: .data.l unk_FFFF8D08
+ROM:0002EC60 REQ_A0_MUT: .data.l unk_FFFF8D2A
+ROM:0002EC64 REQ_A1_MUT: .data.l unk_FFFFF725
+ROM:0002EC68 REQ_A2_MUT: .data.l PADR
+ROM:0002EC6C REQ_A3_MUT: .data.l unk_FFFF8D2A
+ROM:0002EC70 REQ_A4_MUT: .data.l unk_FFFFF737
+ROM:0002EC74 REQ_A5_MUT: .data.l PBDR
+ROM:0002EC78 REQ_A6_MUT: .data.l PCDR
+ROM:0002EC7C REQ_A7_MUT: .data.l unk_FFFFF745
+ROM:0002EC80 REQ_A8_MUT: .data.l unk_FFFFF746
+ROM:0002EC84 REQ_A9_MUT: .data.l PECR_lo
+ROM:0002EC88 REQ_AA_MUT: .data.l PEDR
+ROM:0002EC8C REQ_AB_MUT: .data.l unk_FFFFF74D
+ROM:0002EC90 REQ_AC_MUT: .data.l PFDR
+ROM:0002EC94 REQ_AD_MUT: .data.l unk_FFFFF763
+ROM:0002EC98 REQ_AE_MUT: .data.l PGDR
+ROM:0002EC9C REQ_AF_MUT: .data.l unk_FFFFF72B
+ROM:0002ECA0 REQ_B0_MUT: .data.l MAF_SOURCE_MAIN
+
+I'm reasonably confident that most of this table is correct, however I wouldn't be surprised if some isn't. Given that I don't own a DSM any more, and haven't for a few years, I can't really verify anything on it. If there are updates submitted, I'd be happy to make corrections. jerickso --[a]-- evilsoft _ org
+Sensor 	Address 	Data Min 	Data Max 	Function 	Sample
+Accel Enrichment 	0x1D 	0x01 == 0% 	0xFF == 100% 	y = 100(x/255) 	== %
+
+Coolant Temp 	0x07 	0x01 == 307deg F 	0xFF == -62deg F 	y = -1.45x + 308 	== deg F
+
+Engine Speed 	0x21 	0x01 == 31 	0xFF == 7969 	y = 31.25x 	== rpm
+Fuel Trim High 	0x0E 	0x01 == 1% 	0xFF == 199% 	y = .78x 	== %
+Fuel Trim Low 	0x0C 	0x01 == 1% 	0xFF == 199% 	y = .78x 	== %
+Fuel Trim Middle 	0x0D 	0x01 == 1% 	0xFF == 199% 	y = .78x 	== %
+Injector Pulse Width 	0x29 	0x01 == .256ms 	0xFF == 65.3ms 	y = .256x 	== ms
+Oxygen Feedback Trim 	0x0F 	0x01 == 1% 	0xFF == 199% 	y = .78x 	== %
+Oxygen Sensor 	0x13 	0x01 == .02v 	0xFF == 4.98v 	y = .0195x 	== v
+Throttle Position 	0x17 	0x01 == 0% 	0xFF == 100% 	y = 100(x/255) 	== %
+Air Flow Hz 	0x1A 	0x01 == 6Hz 	0xFF == 1606Hz 	y = 6.29x 	== Hz
+
+Air Temperature 	0x3A 	0x01 == 356deg F 	0xFF == -74deg F 	y = -1.69x + 358 	== deg F
+
+Air Volume 	0x2C 	0x01 == 1 	0xFF == 255 	y = x 	==
+Barometer 	0x15 	0x01 == 0bar 	0xFF == 1.24bar 	y = .00486x 	== bar
+ISC Steps 	0x16 	0x01 == 1 	0xFF == 255 	y = x 	==
+Knock Sum 	0x26 	0x01 == 1 	0xFF == 255 	y = x 	==
+Timing Advance 	0x06 	0x01 == -9 deg 	0xFF == 245 deg 	y = x - 10 	== deg
+Battery 	0x14 	0x01 == 0.1v 	0xFF == 18.7v 	y = .0733x 	== v
+EGR Temperature 	0x12 	0x01 == 595deg F 	0xFF == -94deg F 	y = -2.7x + 597.7 	== deg F
+TDC 	0x02 	0x04 (inverted) 	Switch Value: 	
+Power Steering 	0x02 	0x08 (inverted) 	
+AC Switch 	0x02 	0x10 (inverted) 	
+Park/Neutral 	0x02 	0x20 (inverted) 	
+Idle Switch 	0x02 	0x80 (inverted) 	
+AC Clutch 	0x00 	0x20 (inverted) 	
+
+Engine Codes
+0x18 	1.8 MPI California
+0x19 	1.8 MPI Federal
+0x20 	2.0 DOHC Federal
+0x21 	2.0 DOHC California
+0x22 	2.0 Turbo Federal
+0x23 	2.0 Turbo California
+0x4E 	3.0 DOHC California
+0x4F 	3.0 DOHC Federal
+0x50 	3.0 Turbo California
+0x51 	3.0 Turbo Federal
+0xC8 	2.0 DOHC
+0xC9 	2.0 Turbo
+
+ECU Version
+0x36 	1990 Federal
+0x37 	1990 California
+0xA3 	1993
+0xB5 	1991 - 1992
+0xCB 	1991 - 1992 VR4
+0x54 	TMO Modified
+
+I think that there is some confusion. 'How many lines' in OBD-II (SAE J1978) depends on the physical layer, which varies between make and model. In this case we are talking about ISO 9141-2.
+
+Per the 9141-2 spec, ECU's can implement a one line interface (K) or a two line interface (K and L). K is always the bi-directional line for communication, L is uni-directional and is only used for ECU addressing.
+
+Section 6 is the 9141-2 spec, "Initialization of vehicle prior to serial communication" and Section 4, "Specific configurations" seem clear. For initialization the tester should simultaneously broadcast an address of 33h on the K and L lines at 5 b/s.
+
+Both the "Jeff" interface and the OpenPort 1.2/1.3 appear capable of doing this. There is no "switching" required. You can generate the slow 5 baud byte transmission on the K line using break and the L line by toggling a handshaking line (on OpenPort 1.3 you can use the D2XX interface to actually set the baud rate down to 5 b/s instead of using breaks and host based timeing). However, if the ScanTech tool did this, it would not work with OpenPort 1.3 cables - because the interfaces use different handshaking lines to access the L line. Toggling the RTS line to signal L on a 'Jeff' interface would disrupt communication on the K line on a 1.3 cable (since RTS is used for selecting DTR/RX-TX usage on 1.3 cables). Disrupting the K line would make communication with single wire ECUs fail.
+
+On 1.2 interfaces, toggling RTS would toggle the Subaru specific Vpp line. I don't know if this would effect single wire communiation, but it is not something I would normally want to do adhoc. So, yes, I consider it a stroke of good fortune that the interfaces are similiar in their handling of K and that the Scan Tech app does not attempt to utlize L. Especially with OpenPort 1.3 cables, which have provisions to make L bi-directional (alternate, manufacturer specific, uses of L are allowed under the spec) and uses additional control lines on the USB->Serial chip for control.
+
+But even with a rudimentary convertor there is some luck involved. For example, the simple choice of sourcing or syncing opto isolators in the HW design would determine rather or not the software needs to invert bytes being transmitted via RS-232.
+
+But a little luck does not diminish the efforts of the original programmer. That person simply set out to support Jeff Noxon's design.
+

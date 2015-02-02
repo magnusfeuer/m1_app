@@ -1,0 +1,27 @@
+#
+# Include makefile for all plugins
+#
+CORE_VERSION?=1.1.0
+TARGET_DIR := ../../../lib/
+CXX := g++
+EPIC_INCDIR := ../../../core/epic/include
+M1_INCDIR := ../../../core/include
+EXTERN_INCDIR := ../../../core/extern/include
+
+ifeq "$(DEBUG)" "1"
+DBGFLAG=-DDEBUG
+CXXFLAGS := -g
+else
+CXXFLAGS := -O2
+endif
+
+ifeq "$(UNAME)" "Darwin"
+CXXFLAGS := $(CXXFLAGS) -DDARWIN=1 -fPIC -I. -I$(EPIC_INCDIR) -I$(EXTERN_INCDIR) -I$(M1_INCDIR) $(DBGFLAG)
+LFLAGS := -bundle -flat_namespace -undefined suppress
+SFLAGS := -x
+else
+CXXFLAGS:= $(CXXFLAGS) -fPIC -I. -I$(EPIC_INCDIR)  -I$(EXTERN_INCDIR) -I$(M1_INCDIR) $(DBGFLAG)
+LFLAGS:=-shared
+SFLAGS:=
+endif
+

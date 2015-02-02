@@ -1,0 +1,164 @@
+// -*- c++ -*-
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+//
+// See if we must init current skin.
+// 
+bool foundit = false;
+int i;
+Psigned selected_vehicle = Psigned { key = "core.selectedVehicle", value = 0 };
+
+type WaiverDialog: :GUI:TextDoneDialog {
+    public DDS @:GUI:DoneDialog.bgDDS = .GUI.dlg_bg_600x410;
+    int count = 0;
+    event unsigned int tap <- .ScreenLib.inputStrategy.button1Down;
+
+    script tap when tap == 0 {
+	++count;
+
+	if (count == 2) {
+	    *done_clicked = true;
+	}
+    }
+};
+
+WaiverDialog waiver;
+Pbool recalibrate = Pbool { key = "core.touch_screen.recalibrate", value = false };
+Pbool inhibit_waiver = Pbool { key = "core.inhibit_startup_waiver", value = false };
+
+
+*.EngineBaseLib.engine.currentVehicleProfile = selected_vehicle.value;
+// printf("Vehicle set to [%s %s]\n",
+//        .EngineBaseLib.engine.vehicleProfiles[selected_vehicle.value].make, 
+//        .EngineBaseLib.engine.vehicleProfiles[selected_vehicle.value].model);
+
+// Activate the correct skin
+.SkinLib.manager.modeMenuSelection = -1; // Load stored skin.
+//     foreach i in [ 0 : size(.Core.skins.children) - 1] {
+// 	if (@:SkinLib:Base(.Core.skins.children[i]).ident.value == .Core.currentSkin.value) {
+// 	    printf("Final: Will enable skin [%s]\n", @:Core:PreSkinBase(.Core.skins.children[i]).ident.text);
+// 	    @:Core:PreSkinBase(.Core.skins.children[i]).inUse <- @:GUI:BoolTrigger { t = true }.t;
+// 	    foundit = true;
+// 	}
+//     }
+    
+//    if (!foundit) {
+// 	printf("Core: No DB entry for core.skin.selected. Initializing current skin to [%s]\n",  
+
+// 	       @:Core:PreSkinBase(.Core.skins.children[0]).ident.text);
+//	.Core.currentSkin.value = @:Core:PreSkinBase(.Core.skins.children[i]).ident.value;
+//	@:Core:PreSkinBase(.Core.skins.children[i]).inUse <- @:GUI:BoolTrigger { t = true }.t;
+//    }
+
+//    printf("1\n");
+//     .Core.setupDialog = :Core:SetupDialog { height = 350, width = 400}; 
+//     .Core.replayDialog = :Core:ReplayDialog { height = 350, width = 400}; 
+//    .Core.logLayer = :Core:LogLayer { }; 
+
+//
+// Tie engine logging to our log event boolean
+// which is activated and de-activated through our
+// 
+//
+.EngineBaseLib.engine.logWriter.active <- .Core.logLayer.logActive;
+
+//    printf("lastLogFile [%s]\n", .Core.lastLogFile.value);
+//    @:Core:ReplayDialog(.Core.replayDialog).log.fileName <- .Core.lastLogFile.value;
+
+//     @:Core:ReplayDialog(.Core.replayDialog).log.fileName = "/mnt/m1_00002.csv";
+.EngineBaseLib.engine.logWriter.fileName = .Core.lastLogFile.value;
+.Core.lastLogFile.value <-  .EngineBaseLib.engine.logWriter.fileName;
+
+
+//    printf("1\n");
+
+//
+// First time execution, or recalibration was requested prior to restart.
+// Calibrate touch screen.
+//
+if (!.ScreenLib.invertX.exists || recalibrate.value == true) {
+    .Core.touchscreenCalibration.currentState = 2;
+    *.Core.touchscreenCalibration.calibrate = true;
+    recalibrate.value = false; // Stored in db.
+}
+
+.Core.logWriteError <- .EngineBaseLib.engine.logWriter.error;
+
+// .ScreenLib.screen.children[size(.ScreenLib.screen.children)] = .ScreenLib.fpsLayer;
+//
+// Setup an engine log file name pattern
+//
+.EngineBaseLib.engine.logWriter.fileNamePattern = "/mnt/m1_%d.csv";
+
+//
+// Initialize Core tire database variables.
+//
+if (.EngineBaseLib.engine.tireWidthDB.value == 0)
+    .EngineBaseLib.engine.tireWidthDB.value = .EngineBaseLib.engine.vehicleProfiles[.EngineBaseLib.engine.currentVehicleProfile].tireWidth;
+
+if (.EngineBaseLib.engine.tireSidewallRatioDB.value == 0)
+    .EngineBaseLib.engine.tireSidewallRatioDB.value = .EngineBaseLib.engine.vehicleProfiles[.EngineBaseLib.engine.currentVehicleProfile].tireSidewallRatio;
+
+if (.EngineBaseLib.engine.tireRimDiameterDB.value == 0)
+    .EngineBaseLib.engine.tireRimDiameterDB.value = .EngineBaseLib.engine.vehicleProfiles[.EngineBaseLib.engine.currentVehicleProfile].tireRimDiameter;
+
+//
+// Show a startup warning dialog
+// 
+// @:GUI:TextDoneDialog {
+//     text = { 
+// 	"Always operate the vehicle safely.",
+// 	"Do not become distracted by the",
+// 	"M.1 while driving and always be",
+// 	"aware of all driving conditions.",
+//         "Minimize the amount of time spent", 
+// 	"viewing this screen while driving.",
+// 	"Do not enter the setup menu, view",
+// 	"data logs or access functions",
+// 	"requiring prolonged interaction",
+// 	"with the M.1 while driving. Pull",
+// 	"over in a safe and legal manner",
+// 	"before attempting such operations."
+//     },
+//     // Disable all buttons
+//     prevButton = :GUI:Button { buttonEnabled = false },
+//     nextButton = :GUI:Button { buttonEnabled = false },
+//     prevButtonBackground = DDS { },
+//     nextButtonBackground = DDS { },
+//     buttonShadowDDSFile = ""
+// };
+
+if (!inhibit_waiver.value) {
+    waiver = @WaiverDialog { 
+	text = { 
+	    "Attention drivers:",
+	    "Please make all M.1 screen changes while",
+	    "vehicle is stationary, or have a ",
+	    "passenger make changes when the vehicle",
+	    "is in motion.",
+	    "",
+	    "Do not view screen for prolonged periods",
+	    "of time while driving.",
+	    "",
+	    "By reading and acknowleding this warning",
+	    "you agree to the terms and conditions of",
+	    "the magden user safety precautions.",
+	    "",
+	    "Tap screen twice to acknowledge."
+	},
+	// Disable all buttons
+	prevButton = :GUI:Button { buttonEnabled = false },
+	nextButton = :GUI:Button { buttonEnabled = false },
+	done = :GUI:Button { buttonEnabled = false },
+	prevButtonBackground = DDS { },
+	nextButtonBackground = DDS { },
+	doneBackground = DDS { },
+	buttonShadowDDSFile = ""
+    };
+}
+inhibit_waiver.value = false; // Store in db.
+

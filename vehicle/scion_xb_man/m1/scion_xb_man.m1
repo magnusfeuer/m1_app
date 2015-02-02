@@ -1,0 +1,46 @@
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+//
+// Add a Scion xB application
+//
+int ind = size(.EngineBaseLib.engine.vehicleProfiles);
+
+type ScionXBManProfile: :EngineBaseLib:VehicleProfile {
+    make = "Scion";
+    model = "xB";
+    startYear = 2008;
+    stopYear = 0; //
+    gearType = 1; // Manual
+    curbWeight = 1465; // Curb weight + driver. kg
+    length = 425; // Cm
+    width = 176;
+    height = 164;
+    wheelBase = 0;
+    displacement = 240; // cubic centimetres. 
+    imageFile = "dds/scion_xb.png";
+    obdIIProtocol = 0;
+    
+    gearCount = 5;
+    cylinders = 4;
+    cylinderConfig = 1; // inline
+
+    chanProf[.EC.rpm].max = 8000; 
+    chanProf[.EC.rpm].maxWarn = 6250;    
+    chanProf[.EC.rpm].maxCritical = 6500;   
+
+    tireWidth = 250;
+    tireSidewallRatio = 55;
+    tireRimDiameter = 16;
+
+};
+
+.EngineBaseLib.engine.vehicleProfiles[ind] = @ScionXBManProfile {};
+
+
+// Init current vehicle profile if necessary.
+if (.EngineBaseLib.engine.currentVehicleProfile == -1)
+    .EngineBaseLib.engine.currentVehicleProfile = 0;

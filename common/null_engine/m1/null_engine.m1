@@ -1,0 +1,28 @@
+// -*- c++ -*-
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+library EngineLib {
+    
+    //
+    // NullEngine
+    // This Engine subclass creates a Null engine and ties
+    // its output to the Engine variables. Normalization is done as well.
+    //
+    type NullEngine {
+	script NullEngine {
+
+	    .EngineBaseLib.engine.state = 3;
+	    .EngineBaseLib.engine.setupDependentChannels = true;
+// 	    .EngineBaseLib.engine.channels[.EC.rpm].supported <- true;
+// 	    .EngineBaseLib.engine.channels[.EC.rpm].supported = true;
+	}
+    };
+	
+    
+    // Persistent storage of the selected protocol.
+    NullEngine engine = NullEngine { };
+}

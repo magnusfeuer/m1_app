@@ -1,0 +1,41 @@
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+//
+// Add a Mitsubishi Evo X manual
+//
+int ind = size(.EngineBaseLib.engine.vehicleProfiles);
+
+type MitsubishiEvoXManualProfile: :EngineBaseLib:VehicleProfile {
+    make = "Mitsubishi";
+    model = "Evo X";
+    imageFile = "dds/mitsubishi_evo_x.png";
+    startYear = 2008;
+    stopYear = 0; // Unknown.
+    gearType = 1;
+    curbWeight = 1690; // Curb weight + driver. Avg for GSR and MR edition
+    length = 450; // In cm.
+    width = 181;
+    height = 148;
+    wheelBase = 0; // Unknown
+    displacement =  200; // cubic centimetres. 
+    cylinders = 4;
+    cylinderConfig = 1; // Inline
+    obdIIProtocol = 0; // CAN preset does not work yet.
+    gearCount = 6;
+    chanProf[.EC.rpm].max = 8000;    
+    chanProf[.EC.rpm].maxWarn = 6750;    
+    chanProf[.EC.rpm].maxCritical = 7000;    
+    tireWidth = 245;
+    tireSidewallRatio = 40;
+    tireRimDiameter = 18;
+};
+
+.EngineBaseLib.engine.vehicleProfiles[ind] = @MitsubishiEvoXManualProfile {};
+
+if (.EngineBaseLib.engine.currentVehicleProfile == -1)
+    .EngineBaseLib.engine.currentVehicleProfile = 0;
+

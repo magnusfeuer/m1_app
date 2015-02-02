@@ -1,0 +1,838 @@
+// -*- c++ -*-
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+//
+// Life Style skin
+//
+library LifeStyleSkinLib {
+
+//     event time sample <-
+// 	@Timer { cycleInterval = 1.0, loop = true }.cycleTime;
+
+//     Float fpsLayer = @Float { top = 0, left = 0,
+// 			      value = 0,
+// 			      fontName = .GUI.systemFont,
+// 			      fontSize = 12,
+// 			      fontWeight = medium,
+// 			      fontColor = 0xFFFFFF,
+// 			      format = "FPS: %.2f" };
+
+
+    type LifestyleGauge: :SkinLib:GaugeDDS {
+	float orgWidth = -1.0;
+	float orgLeft = -1.0;
+
+    };
+
+    type LifestyleProgressGauge: LifestyleGauge {
+	float startOffset;
+
+
+	script channel when channel != nil {
+	    width <- (channel.normal.value * orgWidth + startOffset);
+	}
+
+ 	script destroy when destroy {
+	    //	    printf("LifestyleGauge:destroy: Called\n");
+	    width = nil;
+	    width <- nil;
+ 	}
+    };
+
+    //  Right cap.
+    type LifestyleRightCap: :SkinLib:GaugeDDS {
+	float orgLeft = -1.0;
+	float orgWidth = -1.0;
+
+ 	script channel when channel == nil {
+ 	    left <- nil;
+ 	}
+
+	script channel when channel != nil {
+	    if (orgLeft == -1.0) {
+		orgLeft = left;
+	    }
+ 	    left <- (channel.normal.value * orgWidth + orgLeft);
+ 	    left = (channel.normal.value * orgWidth + orgLeft);
+	}
+
+ 	script destroy when destroy {
+	    //	    printf("LifestyleRightCap:destroy: Called\n");
+	    left <- nil;
+ 	}
+    };
+
+    //  Left Dual  cap.
+    type LifestyleDualLeftCap: :SkinLib:GaugeDDS {
+	float orgLeft = 0;
+	float capWidth = 17;
+	float orgWidth;
+
+	script value when value > 0.5 {
+	    left = orgLeft + orgWidth / 2 - contentWidth + 3;
+	}
+
+	script value when value <= 0.5 {
+	    left =  orgLeft + value * (orgWidth - capWidth) - contentWidth + capWidth;
+	}
+    };
+
+    //  Right Dual  cap.
+    type LifestyleDualRightCap: :SkinLib:GaugeDDS {
+	float orgWidth;
+	float orgLeft;
+	float capWidth = 17;
+
+	script value when value < 0.5 {
+	    left = orgLeft + orgWidth / 2 - 3;
+	}
+
+	script value when value >= 0.5 {
+	    left = orgLeft + value * (orgWidth - capWidth);
+	}
+    };
+
+
+    type LifestyleDualGauge: LifestyleGauge {
+	float offset = 0;
+	bool initialized = false;
+
+ 	script value when value <= 0.5 {
+    	    owner.left = orgLeft + (orgWidth/2 - offset ) * 2* value + offset; 
+	    width = orgLeft + orgWidth * 0.5;
+    	    left = 0 - owner.left;
+ 	}
+
+	script value when value > 0.5 {
+  	    owner.left = orgLeft + orgWidth / 2;
+	    left = 0 - orgWidth / 2;
+     	    width = (orgWidth - offset) * value;
+ 	}
+
+	script channel when channel != nil {
+	    owner.left = orgLeft + orgWidth / 2;
+	    left = 0 - owner.left;
+	    width = 30;
+	}
+ 
+    };
+
+    //
+    // The background image that is used to specify critical zones.
+    //
+    type LifeStyleCritical: :SkinLib:GaugeDDS {
+	float orgWidth = 1-.0;
+	float orgLeft = -1.0;
+
+	script channel {
+// 	    printf("LifeStyleCritical(): channel [%p]\n---------\n", channel);
+// 	    printf("LifeStyleCritical(): cProfile [%p]\n\n", cProfile);
+	}
+	script channel || cProfile when channel != nil && cProfile != nil && cProfile.max - cProfile.maxCritical > 0 {
+ 	    *width = (cProfile.max - cProfile.maxCritical) / cProfile.max * orgWidth;
+ 	    *left = orgLeft + orgWidth -  (cProfile.max - cProfile.maxCritical) / cProfile.max * orgWidth;
+	    //	    printf("LifeStyleCritical(): ACTIVE\n");
+	    transparency = 0.75;
+	}
+
+	script channel when channel != nil && cProfile != nil && cProfile.max - cProfile.maxCritical == 0 {
+	    //	    printf("LifeStyleCritical(): DEACTIVE\n");
+	    transparency = 1.0;
+	}
+	
+	script LifeStyleCritical {
+	    //	    printf("LifeStyleCritical(): Created channel[%p]\n", channel);
+	    transparency = 1.0;
+	}
+    };
+
+    type LifestyleSkin :SkinLib:Manager:Base {
+	int gauge_templates[] =  {
+	    2, // rpm = 0;
+	    2, // map_mbar = 1;
+	    -1, // 4, // map_psi = 2;
+	    -1, // 5, // map_mbarcm = 3;
+	    5, // map_psiin = 4;
+	    0, // kph = 5;
+	    0, // mph = 6;
+	    -1, // 2, // trim_1 = 7;
+	    -1, // 2, // trim_2 = 8;
+	    7, // 0, // lam_1_1_l = 9;
+	    7, // 6, // lam_1_1_a = 10;
+	    7, // 6, // lam_1_1_v = 11;
+	    7, // 0, // lam_1_2_l = 12;
+	    7, // 6, // lam_1_2_a = 13;
+	    7, // 6, // lam_1_2_v = 14;
+	    7, // 0, // lam_2_1_l = 15;
+	    7, // 6, // lam_2_1_a = 16;
+	    7, // 6, // lam_2_1_v = 17;
+	    7, // 0, // lam_2_2_l = 18;
+	    7, // 6, // lam_2_2_a = 19;
+	    7, // 6, // lam_2_2_v = 20;
+	    -1, // 0, // load  = 21;
+	    0, // ect_c = 18;
+	    0, // ect_f = 19;
+	    0, // iat_c = 20;
+	    0, // iat_f = 21;
+	    0, // 0, // aat_c = 22;
+	    0, // 0, // aat_f = 23;
+	    0, // 0, // eot_c = 24;
+	    0, // 0, // eot_f  = 25;
+	    4, // vbat = 26;
+	    1, // ign_adv = 27; 
+	    2, // maf_g = 28;
+	    6, // maf_o = 29;  
+	    0, // abs tps = 30;  
+	    0, // relative tps
+	    2, // fp_mbar = 31;
+	    4, // fp_psi = 32;
+	    0, // 0, // fuel_lev  = 33;
+	    2, // 2, // bap_mbar = 34;
+	    4, // 4, // bap_psi = 35;
+	    0, // 0, // hp =36; 
+	    0, // 0, // torque_nm = 37;
+	    0, // 0, // torque_lbft = 38; 
+	    8, // 0, // gear = 39;
+	    -1, // 5, // lp100k = 40; 10, // Litres per 100 km. = ;
+	    4, // 4, // mpg = 41;      
+	    3, // 2 // gforce = 42; 10, // in milliG = ;
+	    2, // eop_mbar 43 Engine oil pressure mbar
+	    4, // eop_psi 44 Engine oil pressure psi
+	    2, // egt1_c 45 Exhaust gas temp C
+	    2, // egt1_f 46 Exhaust gas temp F
+	    2, // egt2_c 47 Exhaust gas temp C
+	    2, // egt2_f 48 Exhaust gas temp F
+	    2, // egt3_c 49 Exhaust gas temp C
+	    2, // egt3_f 50 Exhaust gas temp F
+	    2, // egt4_c 51 Exhaust gas temp C
+	    2, // egt4_f 52 Exhaust gas temp F
+	    2, // egt5_c 53 Exhaust gas temp C
+	    2, // egt5_f 54 Exhaust gas temp pF
+	    2, // egt6_c 55 Exhaust gas temp C
+	    2, // egt6_f 56 Exhaust gas temp F
+	    2, // egt7_c 57 Exhaust gas temp C
+	    2, // egt7_f 58 Exhaust gas temp F
+	    2, // egt8_c 59 Exhaust gas temp C
+	    2, // egt8_f 60 Exhaust gas temp F
+	    2, // bip_mbar 61 Pre intercooler pressure.
+	    5, // bip_psi 62 Pre intercooler pressure.
+	    2, // aip_mbar 631 Post intercooler pressure.
+	    5, // aip_psi 64 Post intercooler pressure.
+	    2, // ccp_mbar 65 Crank case pressure.
+	    5, // ccp_psi 66 Crank case pressure.
+	    2, // wp_mbar 67 Water pressure
+	    4, // wp_psi 68 Water pressure
+	    0, // fdt_c 69 Front Diff Temp
+	    0, // fdt_f 70 Front Diff Temp
+	    0, // rdt_c 71 Rear Diff Temp
+	    0, // rdt_f 72 Rear Diff Temp
+	    0, // cdt_c 73 Center Diff Temp
+	    0, // cdt_f 74 Center Diff Temp
+	    0, // gbt_c 75 Gear box temp
+	    0, // gbt_f 76 Gear box temp
+	    0, // bit_c 77 Before indtercooler temp.
+	    0, // bit_f 78 Before intercooler temp.
+	    0, // ait_c 79 After intercooler temp.
+	    0, // ait_f 80 After intercooler temp.
+	    0, // ft_c 81 Fuel temp
+	    0, // ft_f 82 Fuel temp.
+	    -1, // latency 83 ECU latency
+	    4 // Fuel pulse width.
+	};
+
+	:SkinLib:Digit digit_int_4 = @:SkinLib:IntDigit {
+	    digitFormat = "%4d",
+	    fontName = "Radio Space Italic",
+	    fontSlant = italic,
+//  	    fontName = "BankGothic Md BT",
+ 	    fontWeight = medium,
+	    glyphFixedWidth = 30,
+ 	    fontSize = 34,
+	    top = 9,
+	    left = 20,
+	    width = 140,
+	    height = 0,
+	    halign = center
+	};
+
+	:SkinLib:Digit digit_int_3 = @:SkinLib:IntDigit {
+	    digitFormat = "%3d",
+	    fontName = "Radio Space Italic",
+	    fontSlant = italic,
+//	    fontName = "BankGothic Md BT",
+	    fontWeight = medium,
+	    glyphFixedWidth = 32,
+	    fontSize = 38,
+	    top = 6,
+	    left = 15,
+	    width = 140,
+	    height = 0,
+	    halign = center
+	};
+
+	:SkinLib:Digit digit_int_blank_zero_1 = @:SkinLib:IntGearDigit {
+	    digitFormat = "%1d",
+	    fontName = "Radio Space Italic",
+	    fontSlant = italic,
+//	    fontName = "BankGothic Md BT",
+	    fontWeight = medium,
+	    glyphFixedWidth = 32,
+	    fontSize = 38,
+	    top = 6,
+	    left = 15,
+	    width = 140,
+	    height = 0,
+	    halign = center
+	};
+
+	:SkinLib:Digit digit_float_2_1 = @:SkinLib:FloatDigit {
+	    digitFormat = "%2.1f",
+//	    fontName = "BankGothic Md BT",
+	    fontName = "Radio Space Italic",
+	    fontSlant = italic,
+	    fontWeight = medium,
+	    glyphFixedWidth = 30,
+	    glyphDotKerning = -5,
+	    fontSize = 34,
+	    top = 9,
+	    left = 20,
+	    width = 140,
+	    height = 0,
+	    halign = center
+	};
+
+	:SkinLib:Digit digit_abs_float_2_1 = @:SkinLib:FloatAbsoluteDigit {
+	    digitFormat = "%2.1f",
+//	    fontName = "BankGothic Md BT",
+	    fontName = "Radio Space Italic",
+	    fontSlant = italic,
+	    fontWeight = medium,
+	    glyphFixedWidth = 30,
+	    glyphDotKerning = -5,
+	    fontSize = 34,
+	    top = 9,
+	    left = 20,
+	    width = 140,
+	    height = 0,
+	    halign = center
+	};
+
+	:SkinLib:Digit digit_float_1_2 = @:SkinLib:FloatDigit {
+
+	    digitFormat = "%1.2f",
+	    fontName = "Radio Space Italic",
+	    fontSlant = italic,
+	    fontWeight = medium,
+	    glyphDotKerning = -5,
+	    glyphFixedWidth = 30,
+	    fontSize = 34,
+	    top = 9,
+	    left = 20,
+	    width = 140,
+	    height = 0,
+	    halign = center
+	};
+
+	Layer labels = Layer { 
+	    children = {
+		@Text { // Top line - Contains gauge name (RPM, Speed etc)
+		    fontName = "BankGothic Md BT",
+		    fontSize = 18,
+		    fontWeight = medium,
+		    left = 20,
+		    top = 50,
+		    width = 140,
+		    halign = center
+		}
+	    }
+	};
+
+
+	:SkinLib:GaugeLayer warning_lights = :SkinLib:GaugeLayer {
+	    gaugeChildren = { 
+		@:SkinLib:ShiftLightDDS { 
+ 		    ddsFileFormat = "dds/LIFESTYLE-Standard-Yellow-LeftGaugeGlow.dds",
+		    left = 15, 
+		    top = 0
+		},
+		@:SkinLib:RedLightDDS { 
+ 		    ddsFileFormat = "dds/LIFESTYLE-Standard-Red-LeftGaugeGlow.dds",
+		    left = 15, 
+		    top = 0
+		}
+	    },
+ 	    width = 180,
+ 	    height = 75,
+ 	    top = 0,
+ 	    left = 0
+	};
+
+	:SkinLib:GaugeLayer progress_640x480 = :SkinLib:GaugeLayer {
+	    gaugeChildren = { 
+		@LifeStyleCritical { 
+		    ddsFileFormat = "dds/LIFESTYLE-Standard-CriticalMarkRed-Progress.dds",  
+		    height = 70,
+		    top = 12,
+		    orgLeft = 213,
+		    orgWidth = 410,
+		    clip = true
+		},
+		@LifestyleProgressGauge { 
+ 		    ddsFileFormat = "dds/LIFESTYLE-Standard-%s-Progress.dds",  
+ 		    width = 410,
+ 		    height = 70,
+		    clip = true,
+		    left = 143,
+		    top = 12,
+		    orgWidth = 410,
+		    orgLeft = 143,
+		    startOffset = 53
+ 		},
+
+
+		@SkinLib:GaugeDDS {
+		    ddsFileFormat = "dds/LIFESTYLE-Standard-Metalic1-NozzleLeft.dds",
+		    left = 173,
+		    top = 17
+		},
+		@LifestyleRightCap { 
+ 		    ddsFileFormat = "dds/LIFESTYLE-Standard-%s-RightCap.dds",
+		    top = 12,
+		    orgLeft = 196,
+		    orgWidth = 410
+ 		}
+	    },
+ 	    width = 640,
+ 	    height = 75,
+ 	    top = 0,
+ 	    left = 0,
+	    clip = true
+	};
+
+	:SkinLib:GaugeLayer progress_640x480_dual = :SkinLib:GaugeLayer {
+	    gaugeChildren = { 
+		@LifestyleDualGauge { 
+ 		    ddsFileFormat = "dds/LIFESTYLE-Standard-%s-Progress.dds",  
+ 		    width = 440,
+ 		    height = 75,
+		    offset = 17,
+		    orgLeft = 185, 
+		    orgWidth = 440,
+		    clip = true
+ 		}
+ 	    },
+ 	    width = 440,
+ 	    height = 75,
+ 	    top = 13,
+ 	    left = 185,
+	    clip = true
+	};
+
+
+	:SkinLib:GaugeLayer progress_640x480_dual_cap = :SkinLib:GaugeLayer {
+	    gaugeChildren = { 
+  		@LifestyleDualLeftCap { 
+   		    ddsFileFormat = "dds/LIFESTYLE-Standard-%s-LeftCap.dds",
+ 		    orgWidth = 440,
+		    orgLeft = 185
+   		},
+ 		@LifestyleDualRightCap { 
+  		    ddsFileFormat = "dds/LIFESTYLE-Standard-%s-RightCap.dds",
+		    orgLeft = 185,
+		    orgWidth = 440
+  		}
+//,
+// 		@SkinLib:GaugeDDS {
+// 		    ddsFileFormat = "dds/LIFESTYLE-Standard-Metalic1-NozzleMiddle.dds",
+// 		    top = 5,
+// 		    left = 397
+// 		}
+	    },
+ 	    width = 440,
+ 	    height = 75,
+ 	    top = 13,
+ 	    left = 0
+	};
+
+	:SkinLib:GaugeLayer progress_800x480 = :SkinLib:GaugeLayer {
+	    gaugeChildren = { 
+		@LifeStyleCritical { 
+		    ddsFileFormat = "dds/LIFESTYLE-Standard-CriticalMarkRed-Progress.dds",  
+		    height = 70,
+		    top = 12,
+		    orgLeft = 213,
+		    orgWidth = 570,
+		    clip = true
+		},
+
+		@LifestyleProgressGauge { 
+ 		    ddsFileFormat = "dds/LIFESTYLE-Standard-%s-Progress.dds",  
+ 		    width = 570,
+ 		    height = 70,
+		    clip = true,
+		    left = 143,
+		    top = 12,
+		    orgWidth = 570,
+		    orgLeft = 143,
+		    startOffset = 53
+ 		},
+
+		@SkinLib:GaugeDDS {
+		    ddsFileFormat = "dds/LIFESTYLE-Standard-Metalic1-NozzleLeft.dds",
+		    left = 173,
+		    top = 17
+		},
+		@LifestyleRightCap { 
+ 		    ddsFileFormat = "dds/LIFESTYLE-Standard-%s-RightCap.dds",
+		    top = 12,
+		    orgLeft = 196,
+		    orgWidth = 570
+ 		}
+	    },
+  	    width = 800,
+ 	    height = 75,
+ 	    top = 0,
+ 	    left = 0,
+	    clip = true
+	};
+
+	:SkinLib:GaugeLayer progress_800x480_dual = :SkinLib:GaugeLayer {
+	    gaugeChildren = { 
+		@LifestyleDualGauge { 
+ 		    ddsFileFormat = "dds/LIFESTYLE-Standard-%s-Progress.dds",  
+ 		    width = 600,
+ 		    height = 75,
+		    offset = 17,
+		    orgLeft = 185, 
+		    orgWidth = 600,
+		    clip = true
+ 		}
+	    },
+ 	    width = 600,
+ 	    height = 75,
+ 	    top = 13,
+ 	    left = 185,
+	    clip = true
+	};
+
+	:SkinLib:GaugeLayer progress_800x480_dual_cap = :SkinLib:GaugeLayer {
+	    gaugeChildren = { 
+ 		@LifestyleDualLeftCap { 
+  		    ddsFileFormat = "dds/LIFESTYLE-Standard-%s-LeftCap.dds",
+		    orgWidth = 600,
+		    orgLeft = 185
+  		},
+ 		@LifestyleDualRightCap { 
+  		    ddsFileFormat = "dds/LIFESTYLE-Standard-%s-RightCap.dds",
+		    orgWidth = 600,
+		    orgLeft = 185
+  		}
+// ,
+// 		@SkinLib:GaugeDDS {
+// 		    ddsFileFormat = "dds/LIFESTYLE-Standard-Metalic1-NozzleMiddle.dds",
+// 		    top = 5,
+// 		    left = 462,
+// 		    transparency = 0.5
+// 		}
+	    },
+ 	    width = 600,
+ 	    height = 75,
+ 	    top = 13,
+ 	    left = 0
+	};
+
+	script ~LifestyleSkin {
+	    printf("LifestyleSkin:~LifestyleSkin(): called\n");
+	}
+
+	script LifestyleSkin {
+	    //	    string @:SkinLib:Manager:Base.name = "datalab";
+
+	    templates = {
+		//
+		// 640x480
+		//
+		{
+		    // - 0 - Large 3 digit progress.
+		    @:SkinLib:GaugeTemplate { digits = digit_int_3,  bottom = warning_lights, gauge = progress_640x480,  labels = labels },
+
+		    // - 1 - Large 3 digit dual.
+		    @:SkinLib:GaugeTemplate { digits = digit_int_3,  bottom = progress_640x480_dual, gauge = progress_640x480_dual_cap, labels = labels },
+
+		    // - 2 -Large 4 digit progress.
+		    @:SkinLib:GaugeTemplate { digits = digit_int_4,  bottom = warning_lights, gauge = progress_640x480 ,  labels = labels },
+
+		    // - 3- Large 4 digit dual.
+		    @:SkinLib:GaugeTemplate { digits = digit_int_4,  bottom = progress_640x480_dual, gauge = progress_640x480_dual_cap, labels = labels },
+
+		    // - 4 - Large 2.1 digit progress.
+		    @:SkinLib:GaugeTemplate { digits = digit_float_2_1,  bottom = warning_lights, gauge = progress_640x480 ,  labels = labels },
+
+		    // - 5 - Large 2.1 digit dual.
+		    @:SkinLib:GaugeTemplate { digits = digit_abs_float_2_1, bottom = progress_640x480_dual ,  gauge = progress_640x480_dual_cap, labels = labels },
+
+		    // - 6 - Large 1.2 digit progress.
+		    @:SkinLib:GaugeTemplate { digits = digit_float_1_2,  bottom = warning_lights, gauge = progress_640x480 ,  labels = labels },
+
+		    // - 7 - Large 1.2 digit dual.
+		    @:SkinLib:GaugeTemplate { digits = digit_float_1_2,  bottom = progress_640x480_dual ,  gauge = progress_640x480_dual_cap, labels = labels },
+		    // - 8 - Large 1 digit progress blank zero.
+		    @:SkinLib:GaugeTemplate { digits = digit_int_blank_zero_1,  bottom = warning_lights, gauge = progress_640x480,  labels = labels }
+
+
+
+		    // - 0 - Large needle
+		    //		@:SkinLib:GaugeTemplate {  digits = digit_int_3, gauge = progress_640x480,  labels = labels }
+		    // 		// - 1 - Small needl
+		    // 		@:SkinLib:GaugeTemplate {  gauge = small_needle, labels = small_labels }
+		},
+		//
+		// 800x480 
+		//
+		{		// - 0 - Large needle
+		    // - 0 - Large 3 digit progress.
+		    @:SkinLib:GaugeTemplate { digits = digit_int_3,  bottom = warning_lights, gauge = progress_800x480,  labels = labels },
+
+		    // - 1 - Large 3 digit dual.
+		    @:SkinLib:GaugeTemplate { digits = digit_int_3,  bottom = progress_800x480_dual, gauge = progress_800x480_dual_cap,  labels = labels },
+
+		    // - 2 -Large 4 digit progress.
+		    @:SkinLib:GaugeTemplate { digits = digit_int_4,  bottom = warning_lights, gauge = progress_800x480 ,  labels = labels },
+
+		    // - 3- Large 4 digit dual.
+		    @:SkinLib:GaugeTemplate { digits = digit_int_4,  bottom = progress_800x480_dual,   gauge = progress_800x480_dual_cap, labels = labels },
+
+		    // - 4 - Large 2.1 digit progress.
+		    @:SkinLib:GaugeTemplate { digits = digit_abs_float_2_1,  bottom = warning_lights, gauge = progress_800x480 ,  labels = labels },
+
+		    // - 5 - Large 2.1 digit dual.
+		    @:SkinLib:GaugeTemplate { digits = digit_float_2_1, bottom = progress_800x480_dual,  gauge = progress_800x480_dual_cap, labels = labels },
+
+		    // - 6 - Large 1.2 digit progress.
+		    @:SkinLib:GaugeTemplate { digits = digit_float_1_2,  bottom = warning_lights, gauge = progress_800x480 ,  labels = labels },
+
+		    // - 7 - Large 1.2 digit dual.
+		    @:SkinLib:GaugeTemplate { digits = digit_float_1_2, bottom = progress_800x480_dual, gauge = progress_800x480_dual_cap, labels = labels },
+
+		    // - 8 - Large 1 digit progress blank zero.
+		    @:SkinLib:GaugeTemplate { digits = digit_int_blank_zero_1,  bottom = warning_lights, gauge = progress_800x480,  labels = labels }
+		}   
+	    };
+
+
+	    slots = { 
+		//
+		// 640x480 slot placements
+		//
+		{
+		    // 640x480  - Large upper left
+		    @:SkinLib:Manager:Base:Slot { // 
+			//			ident = @:GUI:Option { value = 1, text = "First 640x480" },
+			owner = this,
+			height = 70, 
+			width = 145,
+			top = 20, 
+			left = 0,
+			usedTemplates = gauge_templates
+		    },
+		    // 640x480  - Large upper right
+		    @:SkinLib:Manager:Base:Slot { // 
+			//			ident = @:GUI:Option { value = 2, text = "Second 640x480" },
+			owner = this,
+			height = 70, 
+			width = 145,
+			top = 113, 
+			left = 0,
+			usedTemplates = gauge_templates
+		    },
+		    // 640x480  - Small lower left 
+
+		    @:SkinLib:Manager:Base:Slot { // 
+			//			ident = @:GUI:Option { value = 3, text = "Third 640x480" },
+			owner = this,
+			height = 70, 
+			width = 145,
+			top = 205, 
+			left = 0,
+			usedTemplates = gauge_templates
+		    },
+		    // 640x480  - Small center 
+		    @:SkinLib:Manager:Base:Slot { // 
+			//			ident = @:GUI:Option { value = 4, text = "Fourth 640x480" },
+			owner = this,
+			height = 70, 
+			width = 145,
+			top = 298, 
+			left = 0,
+			usedTemplates = gauge_templates
+		    },
+		    // 640x480  - Small lower right
+		    @:SkinLib:Manager:Base:Slot { // 
+			//			ident = @:GUI:Option { value = 5, text = "Fifth 640x480" },
+			owner = this,
+			height = 70, 
+			width = 145,
+			top = 390, 
+			left = 0,
+			usedTemplates = gauge_templates
+		    }
+
+		},
+		//
+		// 800x480 slot placements.
+		//
+		{
+		    // 800x480  - Large upper left
+		    @:SkinLib:Manager:Base:Slot { // 
+			//			ident = @:GUI:Option { value = 1, text = "First 800x480" },
+			owner = this,
+			height = 70, 
+			width = 145,
+			top = 20, 
+			left = 0,
+			usedTemplates = gauge_templates
+		    },
+		    // 800x480  - Large upper right
+		    @:SkinLib:Manager:Base:Slot { // 
+			//			ident = @:GUI:Option { value = 2, text = "Second 800x480" },
+			owner = this,
+			height = 70, 
+			width = 145,
+			top = 113, 
+			left = 0,
+			usedTemplates = gauge_templates
+		    },
+		    // 800x480  - Small lower left 
+
+		    @:SkinLib:Manager:Base:Slot { // 
+			//			ident = @:GUI:Option { value = 3, text = "Third 800x480" },
+			owner = this,
+			height = 70, 
+			width = 145,
+			top = 205, 
+			left = 0,
+			usedTemplates = gauge_templates
+		    },
+		    // 800x480  - Small center 
+		    @:SkinLib:Manager:Base:Slot { // 
+			//			ident = @:GUI:Option { value = 4, text = "Fourth 800x480" },
+			owner = this,
+			height = 70, 
+			width = 145,
+			top = 298, 
+			left = 0,
+			usedTemplates = gauge_templates
+		    },
+		    // 800x480  - Small lower right
+		    @:SkinLib:Manager:Base:Slot { // 
+			//			ident = @:GUI:Option { value = 5, text = "Fifth 800x480" },
+			owner = this,
+			height = 70, 
+			width = 145,
+			top = 390, 
+			left = 0,
+			usedTemplates = gauge_templates
+		    }
+		}
+	    };
+
+	    skinUnderlay = :GUI:MenuEnabledLayer  {
+		children = {
+		    :SkinLib:ResMaterialDDS { 
+			top = 0, 
+			left = 0,
+			transparency = 0,
+			ddsFileFormat = "dds/LIFESTYLE-%s-%s-Background.dds"
+		    }
+		},
+		top = 0,
+		left = 0,
+		width <- .ScreenLib.xRes,
+		height <- .ScreenLib.yRes,
+		transparency = 0,
+		wantFocus = true
+	    };
+
+	    skinOverlay = Layer  {
+		children = {
+		    :SkinLib:ResMaterialDDS { 
+			top = 0,
+			left = 0,
+			transparency = 0.0,
+			ddsFileFormat = "dds/LIFESTYLE-%s-%s-Overlay.dds"
+		    },
+		    :SkinLib:ResMaterialDDS { 
+			top = 0, 
+			left = 0,
+			transparency = 0,
+			ddsFileFormat = "dds/LIFESTYLE-%s-%s-HiLiteLayer.dds"
+		    },
+		    :SkinLib:ResMaterialDDS { 
+			top  = 265,
+			left <- (.ScreenLib.xRes / 2 - 30),
+			transparency = 0,
+			ddsFileFormat = "dds/LIFESTYLE-%s-%s-Logo.dds"
+		    }
+		}
+	    };
+	}
+    };
+
+    
+    type LifeStyleProducer: :SkinLib:Manager:Producer {
+	// Procue a new skin and assign it to manager
+	script produce when produce {
+	    printf("LifeStyleProducer::LifeStyleProducer(): called from %s\n", sender(produce));
+	    produce = false;
+	    manager.skin = @LifestyleSkin {
+		name = ident.text,
+		faciaColors = {
+		    @:SkinLib:FaciaColor { value = 1, text = "green", labelColor = 0x3EFE32, digitColor = 0x3EFE32 },
+		    @:SkinLib:FaciaColor { value = 2, text = "orange", labelColor = 0xFF7F00, digitColor =0xFF7F00 },
+		    @:SkinLib:FaciaColor { value = 3, text = "white", labelColor = 0xDFDFDF, digitColor = 0xDFDFDF },
+		    @:SkinLib:FaciaColor { value = 4, text = "blue", labelColor = 0x2B6EF6, digitColor = 0x2B6EF6 },
+		    @:SkinLib:FaciaColor { value = 5, text = "black", labelColor = 0x101010, digitColor = 0x101010 }
+		    //	    @:SkinLib:FaciaColor { value = 5, text = "red", labelColor = 0xFF0000, digitColor = 0xFF0000 },
+		    // 	    @:SkinLib:FaciaColor { value = 7, text = "green", labelColor = 0x24DC4E, digitColor = 0x24DC4E },
+		    // 	    @:SkinLib:FaciaColor { value = 8, text = "orange", labelColor = 0xDA963E, digitColor =0xDA963E },
+		    // 	    @:SkinLib:FaciaColor { value = 9, text = "white", labelColor = 0xF3F3F3, digitColor = 0xF3F3F3 },
+		    // 	    @:SkinLib:FaciaColor { value = 10, text = "blue", labelColor = 0x717AE9, digitColor = 0x717AE9 },
+		    // //	    @:SkinLib:FaciaColor { value = 11, text = "Red", labelColor = 0xFE0202, digitColor = 0xFE0202 },
+		    //	    @:SkinLib:FaciaColor { value = 12, text = "black", labelColor = 0x202020, digitColor = 0x202020 }
+		},
+
+		fgMaterials = {
+		    // 	    @:SkinLib:Material { value = 1, fileNameComponent = "BlueGlow", text = "BlueGlow" },
+		    // 	    @:SkinLib:Material { value = 2, fileNameComponent = "GreenGlow", text = "GreenGlow" },
+		    // 	    @:SkinLib:Material { value = 3, fileNameComponent = "OrangeGlow", text = "OrangeGlow" },
+		    // 	    @:SkinLib:Material { value = 4, fileNameComponent = "SteelGlow", text = "SteelGlow" },
+		    // 	    @:SkinLib:Material { value = 5, fileNameComponent = "YellowGlow", text = "YellowGlow" },
+		    @:SkinLib:Material { value = 1, fileNameComponent = "BlueShadow", text = "blue" },
+		    @:SkinLib:Material { value = 2, fileNameComponent = "GreenShadow", text = "green" },
+		    @:SkinLib:Material { value = 3, fileNameComponent = "OrangeShadow", text = "orange" },
+		    @:SkinLib:Material { value = 4, fileNameComponent = "SteelShadow", text = "steel" },
+		    @:SkinLib:Material { value = 5, fileNameComponent = "StructuredWhiteShadow", text = "white" }
+		    //	    @:SkinLib:Material { value = 5, fileNameComponent = "YellowShadow", text = "Yellow" }
+		},
+		bgMaterials = { 
+		    @:SkinLib:Material { value = 1, fileNameComponent = "Chrome1", text = "chrome" },
+		    @:SkinLib:Material { value = 2, fileNameComponent = "Alum1", text = "aluminum" },
+		    @:SkinLib:Material { value = 3, fileNameComponent = "TwoBlackMatte1", text = "black matte" },
+		    @:SkinLib:Material { value = 4, fileNameComponent = "BlackIce1", text = "black ice" },
+		    @:SkinLib:Material { value = 5, fileNameComponent = "CarbonFiber1", text = "carbon fiber" }
+		    //	    @:SkinLib:Material { value = 6, fileNameComponent = "FancyAlum1", text = "Fancy Alum", labelColor = 0x303030, digitColor = 0x303030 },
+		    //	    @:SkinLib:Material { value = 7, fileNameComponent = "TwoBlackMatte1", text = "Black Matte 2", labelColor = 0xA0A0A0, digitColor = 0xA0A0A0 },
+	    
+		}
+
+	    };
+	}
+    };
+    
+    .SkinLib.manager.producers += @LifeStyleProducer {
+	ident = :GUI:Option { text = "datalab", value = 0 } 
+    };
+}

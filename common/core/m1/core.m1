@@ -1,0 +1,3706 @@
+// -*- c++ -*-
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007, 2008
+//
+
+//
+// Core system library defining system wide dialogs etc.
+//
+
+// 
+// SETUP ITEMS!
+// Reset database
+// Set time/
+// Set vehicle
+// Calibrate screen
+// A/D sensor setup
+//
+library Core {
+
+    //
+    // All skins goes here.
+    //
+    Layer skins = @Layer {	   
+	wantFocus = true, 
+	height <- .ScreenLib.yRes,
+	width <- .ScreenLib.xRes,
+	top <- (.ScreenLib.realYRes - .ScreenLib.yRes) / 2,
+	left <- (.ScreenLib.realXRes - .ScreenLib.xRes) / 2
+    };
+
+    event int logWriteError;  // Will be tied to log.error by constructor.
+    Pstring lastLogFile = @Pstring { key = "core.lastLogFile", value = "" };	 // Last log file written.
+    Psigned currentSkin = @Psigned { key = "core.currentSkin", value = -1 };	 // Will autoload from db
+    :GUI:Cursor cursor;
+
+    //
+    // POWER RUN MANAGER.
+    //
+    type PowerRunManager {
+	:GUI:TextOkCancelDialog start_dlg;
+
+	type PowerRunCompleteDialog: :GUI:DoneDialog {
+	    public :GUI:BGDDS @:GUI:DoneDialog.bgDDS = .GUI.dlg_bg_600x410;
+
+	    float maxHP = 0.0;
+	    float maxTorque = 0.0;
+	    float maxHPRPM = 0.0;
+	    float maxTorqueRPM = 0.0;
+	    
+	    script confirmed when confirmed {
+		//		printf("Done\n");
+	    }
+	    
+	    script ~PowerRunCompleteDialog {
+		//		printf("PowerRunCompleteDialog: Destroyed\n");
+	    }
+
+	    // Constructor.
+	    script PowerRunCompleteDialog {
+		int ind;
+
+		//		printf("PowerRunCompleteDialog: Created\n");
+		//
+		// Find max HP. 
+		//
+		foreach ind in [ 0 : size(.EngineBaseLib.engine.maxHp.key) - 1] {
+		    float rpm = .EngineBaseLib.engine.maxHp.key[ind];
+		    float hp = .EngineBaseLib.engine.maxHp.keyValue[ind];
+		    if (hp > maxHP) {
+			maxHP = hp;
+			maxHPRPM = rpm;
+		    }
+		    if ((hp * 5250)/rpm > maxTorque) {
+			maxTorque = (hp * 5250.0)/rpm;
+			maxTorqueRPM = rpm;
+		    }
+		}
+		
+		scrollPane.children = {
+		    @Text {
+			fontName = .GUI.systemFont,
+			fontSize = 24,
+			fontWeight = medium,
+			fontColor = 0xDDDDDD,
+			top = 0,
+			left = 10,
+			halign = center,
+			text = "powerrun complete"
+		    },
+		    @Shape { 
+ 			top = 35, // border under status
+ 			left = 20,
+ 			shape = rectangle,
+ 			fill = false,
+ 			borderColor = 0xCCCCCC,
+ 			transparency = 0.0,
+ 			borderWidth = 1,
+ 			contentHeight = 1,
+ 			contentWidth <- pane.width - 40
+ 		    },
+		    @Text {
+ 			fontName = .GUI.systemFont,
+ 			fontSize = 30,
+ 			fontWeight = medium,
+ 			fontColor = 0xCCCCCC,
+ 			top = 50,
+ 			halign = left,
+ 			left = 82,
+ 			text = sprintf("max hp: %0.f @ %0.f rpm", maxHP, maxHPRPM)
+ 		    },
+ 		    @Text {
+ 			fontName = .GUI.systemFont,
+ 			fontSize = 30,
+ 			fontWeight = medium,
+ 			fontColor = 0xCCCCCC,
+ 			top = 85,
+ 			halign = left,
+ 			left = 40,
+ 			text = sprintf("max lb-ft: %0.f @ %0.f rpm", maxTorque, maxTorqueRPM)
+ 		    },
+ 		    @Text {
+ 			fontName = .GUI.systemFont,
+ 			fontSize = 30,
+ 			fontWeight = medium,
+ 			fontColor = 0xCCCCCC,
+ 			top = 150,
+ 			halign = center,
+ 			left = 10,
+ 			width <- pane.width - 20,
+ 			text = "to display correct realtime"
+ 		    },
+ 		    @Text {
+ 			fontName = .GUI.systemFont,
+ 			fontSize = 30,
+ 			fontWeight = medium,
+ 			fontColor = 0xCCCCCC,
+ 			top = 185,
+ 			halign = center,
+ 			left = 10,
+ 			width <- pane.width - 20,
+ 			text = "hp and torque values, please"
+ 		    },
+ 		    @Text {
+ 			fontName = .GUI.systemFont,
+ 			fontSize = 30,
+ 			fontWeight = medium,
+ 			fontColor = 0xCCCCCC,
+ 			top = 220,
+ 			halign = center,
+ 			left = 10,
+ 			width <- pane.width - 20,
+ 			text = "use the maf gauge in any"
+ 		    },
+ 		    @Text {
+
+ 			fontName = .GUI.systemFont,
+ 			fontSize = 30,
+ 			fontWeight = medium,
+ 			fontColor = 0xCCCCCC,
+ 			top = 255,
+ 			halign = center,
+ 			left = 0,
+ 			width <- pane.width - 20,
+ 			text = "layout while applying full"
+ 		    },
+ 		    @Text {
+ 			fontName = .GUI.systemFont,
+ 			fontSize = 30,
+ 			fontWeight = medium,
+ 			fontColor = 0xCCCCCC,
+ 			top = 290,
+ 			halign = center,
+ 			left = 10,
+ 			width <- pane.width - 20,
+ 			text = sprintf("full throttle at %.0f rpm", maxHPRPM)
+ 		    }
+		};
+	    }
+	};
+
+	// PowerRunDialog
+	//  This dialog collects rpm/maf data from the ECU during a power run
+	//  and stores them in rpmSamples.
+	//  Once the powerrun is complete (when rpm no longer increases),
+	//  The TonyMagic class is instantiated to create a HP curve
+	//
+	type PowerRunDialog: :GUI:DialogBase {
+	    type TonyMagic {
+		float ts[];
+		float rpm[];
+		float rpmCurve[2][];
+		float hpCurve[3][];
+
+		//
+		// Input fields
+		//
+		SamplerBase rpmSamples; // All RPM samples.
+		int wheelDiameter; // The wheel diameter of the configured wheels
+		int stockWheelDiameter; // The wheel diameter of the stock car, on which gearRatio is based.
+		int vehicleWeight; // in kg.
+		float gearRatio; // rpm / kph
+		
+		//
+		// Output
+		//
+		event bool done = false; // Set to true once hpSamples is populated with data.
+		ScalarInterpolator maxHp; // max HP at every 50 RPM (2500, 2550, 2600, 2650 .. max rpm).
+
+		script ~TonyMagic {
+		    //		    printf("TonyMagic: Destroyed\n");
+		}
+
+		script TonyMagic {
+		    int ind;
+		    CSVWriter temp;
+		    CSVWriter raw;
+		    SampleData sample;
+		    string hpCurveParams;
+		    string bindir = getenv("M1_BIN_PATH");
+		    string cmdLine;
+
+		    //		    printf("TonyMagic: Created\n");
+		    if (bindir == "")
+			bindir = "/m1";
+
+		    ts = {};
+		    rpm = {};
+		    rpmCurve = { };
+		    hpCurve = { {}, {}, {} };
+
+		    //		    printf("RAW DATA\n");
+		    foreach sample in rpmSamples.values {
+			if (sample != nil) {
+			    ts  += @float(sample.timeStamp);
+			    rpm += sample.value;
+			    //			    printf("%0.f %0.f\n", @float(sample.timeStamp), sample.value);
+			}
+		    }
+		    raw = @CSVWriter {
+			fields = { 
+			    @CSVField { name = "ts", format = "%0.f", data=ts },
+			    @CSVField { name = "rpm", format = "%0.1f", data=rpm }
+			},
+			fileNamePattern = "/mnt/raw_%d.csv"
+		    };
+		    raw.store = true;
+		    
+		    
+		    rpmCurve[0] = ts;
+		    rpmCurve[1] = rpm;
+		    hpCurveParams= sprintf("-w %d -D %d -d %d -g %f -b 2000 -s 50",
+					   vehicleWeight, stockWheelDiameter, wheelDiameter, gearRatio);
+
+		    cmdLine = "| " + bindir + "/spline2 -i 1 -r 1.0 -q | " + bindir + "/evalsp | " + bindir + "/hpcurve " + hpCurveParams;
+		    
+		    printf("cmdLine[%s]\n", cmdLine);
+ 		    rwcolumns(cmdLine, " ", rpmCurve, "\t ", hpCurve);
+
+		    //
+		    // Calculate lb-ft.
+		    //
+		    foreach ind in [0:size(hpCurve[1])-1] {
+			//			hpCurve[1][ind] = hpCurve[1][ind] * 1.33; // Increase the HP somewhat.
+			hpCurve[2][ind] = (hpCurve[1][ind] * 5250) / hpCurve[0][ind];
+		    }
+
+		    maxHp = @ScalarInterpolator {
+			key = hpCurve[0],
+			keyValue = hpCurve[1]
+		    };
+
+		    //
+		    // Store everything on disk.
+		    //
+		    temp = @CSVWriter {
+ 		      fields = { 
+ 			@CSVField { name = "rpm", format = "%0.f", data=hpCurve[0] },
+ 			@CSVField { name = "hp", format = "%0.1f", data=hpCurve[1] },
+ 			@CSVField { name = "lb-ft", format = "%0.1f", data=hpCurve[2] }
+ 		      },
+ 		      fileNamePattern = "/mnt/hp_%d.csv"
+ 		    };
+		    temp.store = true;
+
+// 		    printf("PROCESSED DATA\n");
+// 		    printf("rpm   hp\n");
+
+// 		    foreach ind in [0:size(maxHp.key)-1] {
+// 			printf("%f, %f\n", maxHp.key[ind], maxHp.keyValue[ind]);
+// 		    }
+
+		    *done = true;
+		}
+	    };
+
+            public :GUI:BGDDS @:GUI:DialogBase.bgDDS = .GUI.dlg_bg_497x279;
+	    :GUI:Button cancel = @:GUI:Button { ddsFile = "dds/OS-Symbol-Cancel.dds", wantFocus = true, top=0, left=0};
+	    DDS cancelBackground = @DDS { ddsFile = "dds/OS-Button-Overlay.dds", top <- cancel.top, left <- cancel.left };
+	    TonyMagic hpCalculator = nil;
+	    event bool hpCalcDone;
+	    SamplerBase rpmSamples;
+	    unsigned startTS = 0;
+	    float prevRpm;
+	    event bool cancel_clicked <- cancel.clicked;
+	    event float rpm <- .EngineBaseLib.engine.channels[.EC.rpm].value;
+	    event float mph  <- .EngineBaseLib.engine.channels[.EC.mph].value;
+	    int usage[] = { }; // Recorded usages since we will turn all other channels than those above off.
+	    int ind;
+
+	    // event enums doesn't work in the where clause in scripts. 
+	    event int  runState = 1; // 1 == waiting. 2 == collecting 3 == done.
+	    
+	    Text status = @Text {
+ 		    fontName = .GUI.systemFont,
+ 		    fontSize = 24,
+ 		    fontWeight = medium,
+ 		    fontColor = 0xDDDDDD,
+ 		    top = 80,
+ 		    left = 0,
+ 		    width <- pane.width,
+ 		    halign = center,
+ 		    text = "status: waiting for rpm & speed"
+	    };
+
+	    Text speedField = @Text {
+ 		    fontName = .GUI.systemFont,
+ 		    fontSize = 30,
+ 		    fontWeight = medium,
+ 		    fontColor = 0xCCCCCC,
+ 		    top = 120,
+ 		    left = 70,
+		    text <- sprintf("mph: %2.0f", mph)
+	    };
+
+	    Text rpmField = @Text {
+ 		    fontName = .GUI.systemFont,
+ 		    fontSize = 30,
+ 		    fontWeight = medium,
+ 		    fontColor = 0xCCCCCC,
+ 		    top = 160,
+ 		    left = 70,
+		    text <- sprintf("rpm: %4.0f", rpm)
+	    };
+
+
+	    Text speedFieldStatus = @Text {
+ 		    fontName = .GUI.systemFont,
+ 		    fontSize = 30,
+ 		    fontWeight = medium,
+ 		    fontColor = 0xCCCCCC,
+ 		    top = 120,
+ 		    left = 270
+	    };
+
+	    Text rpmFieldStatus = @Text {
+ 		    fontName = .GUI.systemFont,
+ 		    fontSize = 30,
+ 		    fontWeight = medium,
+ 		    fontColor = 0xCCCCCC,
+ 		    top = 160,
+ 		    left = 270
+	    };
+
+
+	    script mph when mph < 15 {
+		speedFieldStatus.text = "<15";
+	    }
+
+	    script mph when mph >= 15 {
+		speedFieldStatus.text = "ok";
+	    }
+
+	    script rpm when rpm < 2000 {
+		rpmFieldStatus.text = "<2000";
+	    }
+
+	    script rpm when rpm >= 2000 {
+		rpmFieldStatus.text = "ok";
+	    }
+
+	    script mph || rpm when rpm >= 2000 && mph >= 15 && runState == 1 {
+		speedField.transparency = 1.0;
+		speedFieldStatus.transparency = 1.0;
+		status.text = "status: collecting data";
+		.EngineBaseLib.engine.channels[.EC.mph].usage = 0;
+//		.EngineBaseLib.engine.channels[.EC.maf_g].usage = 1; // Record maximum maf_g automatically
+		*runState = 2;
+		buttons.transparency = 1.0;
+	    }
+
+	    script rpm when runState == 2 {
+		time now = inow();
+		// Check if it is time to break
+		if (prevRpm  > (rpm + 50)) {
+		    //		    printf("BREAK TIME: prevRPM[%f]  rpm[%f]\n", prevRpm, rpm);
+		    *runState = 3;
+		    break;
+		}
+		
+		if (startTS == 0) {
+		    prevRpm = 0;
+		    rpmSamples = @SamplerBase {};
+		    startTS = now;
+		    //		    printf("Setting startTS[%u]\n", startTS);
+		}
+		    
+		// Ensure that we do not sink RPM wise. 
+		if (rpm < prevRpm)
+		    rpm = prevRpm;
+
+		prevRpm = rpm;
+		rpmSamples.newValue = rpm;
+		rpmSamples.newTimeStamp = now - startTS;
+
+		//
+		// Stop the samplerbase from installing its own time stamp, which
+		// happens when newTimeStamp = 0.
+		//
+		if (rpmSamples.newTimeStamp == 0) 
+		    rpmSamples.newTimeStamp = 1;
+		//		printf("Tick [%0.f] [%u - %u]=[%u]\n", rpm, now, startTS, now - startTS);
+	    }
+
+	    script runState when runState == 3 {
+		runState = 4;
+		startTS = 0;
+
+		//
+		// Setup the HP calculator.
+		//
+		hpCalculator = @TonyMagic { 
+		    rpmSamples = rpmSamples,
+		    wheelDiameter = .EngineBaseLib.engine.tireDiameter,
+		    stockWheelDiameter = 
+		    (.EngineBaseLib.engine.vehicleProfiles[.EngineBaseLib.engine.currentVehicleProfile].tireWidth * 
+		     (0.01 * .EngineBaseLib.engine.vehicleProfiles[.EngineBaseLib.engine.currentVehicleProfile].tireSidewallRatio) * 2) +
+		    (.EngineBaseLib.engine.vehicleProfiles[.EngineBaseLib.engine.currentVehicleProfile].tireRimDiameter * 25.4),
+		    vehicleWeight = .EngineBaseLib.engine.vehicleProfiles[.EngineBaseLib.engine.currentVehicleProfile].curbWeight,
+		    gearRatio = .EngineBaseLib.engine.gearCalc.gearRatios[1].value
+		};
+
+// 		printf("Stock wheel diam[%d] wheel diam[%d]\n",
+// 		       hpCalculator.stockWheelDiameter, 
+// 		       hpCalculator.wheelDiameter);
+
+		hpCalcDone <- hpCalculator.done;
+		*hpCalcDone = hpCalculator.done;
+	    }
+
+	    //
+	    // This script is executed when hpCalculator has done its job
+	    // and sets its 'done' member to true.
+	    // We will store the data in the database and call it a day.
+	    //
+	    script hpCalcDone when hpCalcDone == true {
+		hpCalcDone <- nil; // FIXME: WHy does hpCalcDone gets triggered twice? Magnus 2008-01-17
+		hpCalcDone = false;
+		// Set the global hp interpolator to the newly created object
+		//
+		//		printf("HpCalcDone!\n");
+	
+		// Reset usage to their original values.
+		foreach ind in [0:.EC.count - 1] {
+		    .EngineBaseLib.engine.channels[ind].usage = usage[ind];
+		}
+
+		// Check that we actually got data from hpCalc.
+		if (size(hpCalculator.maxHp.key) == 0) {
+		    @:GUI:TextDoneDialog {
+			bgDDS = .GUI.dlg_bg_410x236,			
+			textFormat = @Text {
+			    fontName = .GUI.systemFont,
+			    fontSize = 24,
+			    fontWeight = medium,
+			    fontColor = 0xCCCCCC,
+			    halign = center
+			},
+			text = {
+			    "there was not enough",
+			    "data to create a hp",
+			    "and torque curve",
+			    "",
+			    "please try again"
+			}
+
+		    }; // Show that things did not go too well.
+		    *cancel_clicked = true; // Same as clicking cancel. PowerRunDialog will survive.
+		    break;
+		}
+		// The following line will setup the new interpolator in the system.
+		.EngineBaseLib.engine.maxHp = @ScalarInterpolator { key = {}, keyValue = {} };
+
+		foreach ind in [0:160] {
+		    .EngineBaseLib.engine.maxHp.key[ind] = ind * 50 + 2000;
+		    if (ind < size(hpCalculator.maxHp.keyValue))
+			.EngineBaseLib.engine.maxHp.keyValue[ind] = hpCalculator.maxHp.keyValue[ind];
+		    else
+			.EngineBaseLib.engine.maxHp.keyValue[ind] = 0.0;
+		}
+		.EngineBaseLib.engine.storeMaxHpToDB = true; // Force storage to DB.
+		//
+		// Setup the maxHp interpolator to be indexed
+		// by RPM.
+		//
+		if (.EngineBaseLib.engine.channels[.EC.rpm].supported) {
+		    .EngineBaseLib.engine.maxHp.fraction <- .EngineBaseLib.engine.channels[.EC.rpm].value;
+		    //		test <- @Timer { cycleInterval = 1.0 }.active;	   
+		}
+
+		// 
+		// Setup HP and torque values. Triggered by reloadMaxHpFromDB below.
+		//
+		if (.EngineBaseLib.engine.channels[.EC.maf_g].supported && .EngineBaseLib.engine.channels[.EC.rpm].supported) {
+		    .EngineBaseLib.engine.channels[.EC.hp].value <- .EngineBaseLib.engine.maxHp.value * .EngineBaseLib.engine.channels[.EC.maf_g].minMaxNormal;
+		    .EngineBaseLib.engine.channels[.EC.hp].supported = true;
+		    .EngineBaseLib.engine.channels[.EC.hp].min = .EngineBaseLib.engine.vehicleProfiles[.EngineBaseLib.engine.currentVehicleProfile].chanProf[.EC.hp].min;
+		    .EngineBaseLib.engine.channels[.EC.hp].max = .EngineBaseLib.engine.vehicleProfiles[.EngineBaseLib.engine.currentVehicleProfile].chanProf[.EC.hp].max;
+
+		    .EngineBaseLib.engine.channels[.EC.torque_nm].value <- .EngineBaseLib.engine.channels[.EC.hp].value * 7122 / .EngineBaseLib.engine.channels[.EC.rpm].value;
+		    .EngineBaseLib.engine.channels[.EC.torque_nm].supported = true;
+		    .EngineBaseLib.engine.channels[.EC.torque_nm].min = .EngineBaseLib.engine.vehicleProfiles[.EngineBaseLib.engine.currentVehicleProfile].chanProf[.EC.torque_nm].min;
+		    .EngineBaseLib.engine.channels[.EC.torque_nm].max = .EngineBaseLib.engine.vehicleProfiles[.EngineBaseLib.engine.currentVehicleProfile].chanProf[.EC.torque_nm].max;
+		}
+
+
+		//		printf("Showing powerrun complete dialog!\n");
+		@PowerRunCompleteDialog {}; // Show the powerrun complete dialog.
+		*cancel_clicked = true; // Same as clicking cancel. PowerRunDialog will survive.
+	    }
+
+	    script cancel_clicked when cancel_clicked {
+		cancel_clicked = false;
+		cancel_clicked <- nil;
+
+		//		printf("PowerRunDialog: CancelClicked [%s]\n", sender(cancel_clicked));
+		if (hpCalculator != nil) {
+		    hpCalculator.ts = {};
+		    hpCalculator.rpm = {};
+		    hpCalculator.rpmCurve = { {}, {} };
+		    hpCalculator.hpCurve = { {}, {} };
+		    hpCalculator.done <- nil;
+		    hpCalculator.rpmSamples = nil;
+		    hpCalculator.maxHp = nil;
+		    hpCalculator = nil;
+		}
+
+		*show = false;
+		cancel = nil;
+		cancelBackground.top <- nil;
+		cancelBackground.left <- nil;
+ 		cancelBackground = nil;
+		hpCalcDone <- nil;
+
+ 		rpmSamples = nil;
+ 		rpm <- nil;
+ 		mph  <- nil;
+ 		usage = { };
+		status = nil;
+		speedField = nil;
+		rpmField = nil;
+		speedFieldStatus = nil;
+		rpmFieldStatus = nil;
+		pane.children[0].width <- nil;
+		pane.children[1].contentWidth <- nil;
+	    }
+
+	    script ~PowerRunDialog {
+		//		printf("YES: PowerRunDialog: Destroyed\n");
+	    }
+
+	    script PowerRunDialog {
+		//		printf("PowerRunDialog: Created\n");
+		pane.children = {
+		    @Text {
+			fontName = .GUI.systemFont,
+			fontSize = 24,
+			fontWeight = medium,
+			fontColor = 0xDDDDDD,
+			top = 0,
+			left = 0,
+			width <- pane.width,
+			halign = center,
+			text = "powerrun in progress"
+		    },
+		    @Shape { 
+			top = 35, // border under status
+			left = 0,
+			shape = rectangle,
+			fill = false,
+			borderColor = 0xCCCCCC,
+			transparency = 0.0,
+			borderWidth = 1,
+			contentHeight = 1,
+			contentWidth <- pane.width
+		    },
+		    status,
+		    speedField,
+		    rpmField,
+		    speedFieldStatus,
+		    rpmFieldStatus
+		};
+		background = 0x000000;
+
+		//
+		// Record all existing usage so that we can reset them later.
+		//
+		foreach ind in [0:.EC.count - 1] {
+		    usage[ind] = .EngineBaseLib.engine.channels[ind].usage;
+		    .EngineBaseLib.engine.channels[ind].usage = 0;
+		}
+		// Setup the two channels we need for idle mode
+		.EngineBaseLib.engine.channels[.EC.rpm].usage = 1;
+		.EngineBaseLib.engine.channels[.EC.mph].usage = 1;
+
+		// Setup buttons
+		buttons.top <- bgDDS.contentHeight - cancel.contentHeight / 2;
+		buttons.height <- cancel.contentHeight;
+
+		buttons.left <- bgDDS.left + bgDDS.contentWidth - 180;
+		buttons.width <- cancel.contentWidth;
+		buttons.children[size(buttons.children)] = cancelBackground;
+		buttons.children[size(buttons.children)] = cancel;
+
+		buttonShadow = @Layer { children = { cancel } };
+	    }
+	};
+	
+	type StartDialog: :GUI:TextOkCancelDialog {
+	    public Text @:GUI:TextOkCancelDialog.textFormat = @Text {
+		fontName = .GUI.systemFont,
+		fontSize = 26,
+		fontWeight = medium,
+		fontColor = 0xCCCCCC,
+		halign = center
+	    };
+
+            public :GUI:BGDDS @:GUI:TextOkCancelDialog.bgDDS = .GUI.dlg_bg_600x410;
+
+	    script confirmed when confirmed {
+		@PowerRunDialog { show = true };
+	    }
+
+	    script ~StartDialog {
+		//		printf("StartDialog: Destroyed\n");
+	    }
+
+	    script StartDialog {
+		//		printf("StartDialog: Created\n");
+		text = {
+		    "please do a full power run from idle",
+		    "to max rpm while in second gear",
+		    "",
+		    "the torque/hp recording starts",
+		    "at 2000 rpm / 15 mph and finishes",
+		    "when the throttle is released",
+		    "",
+		    "tire dimensions must be correctly",
+		    "setup for this feature to work",
+		    "",
+		    "obey all traffic laws",
+		    "click check button to start"
+		};
+	    }
+	};
+
+
+	script PowerRunManager {
+	    //	    printf("PowerRunManager: Created\n");
+	    if (.EngineBaseLib.engine.gearCalc.gearRatios[1].value == 0.0) {
+		@:GUI:TextDoneDialog {
+		    bgDDS = .GUI.dlg_bg_410x236,
+		    textFormat = @Text {
+			fontName = .GUI.systemFont,
+			fontSize = 26,
+			fontWeight = medium,
+			fontColor = 0xFFFFFF,
+			halign = center
+		    },
+		    text = { 
+			"please calibrate second",
+			"gear by selecting",
+			"\"gear ratios\" from",
+			"from the setup dialog"
+		    }
+		};
+		break;
+	    }
+
+	    @StartDialog { };
+	}
+	script ~PowerRunManager {
+	    //	    printf("~PowerRunManager\n");
+	}
+
+		  
+    };
+
+
+    //
+    // WHEEL DIAMETER DIALOG
+    //
+    type SetupWheelSizeDialog: :GUI:OkCancelDialog {
+        public DDS @:GUI:OkCancelDialog.bgDDS = .GUI.dlg_bg_497x279;
+	int i;
+	int ind;
+        :GUI:SpinField tireWidth  = :GUI:SpinField { 
+  	    entries = { },
+  	    top = 90, left = 25,
+	    height = 100,width = 120
+  	};
+
+        :GUI:SpinField tireSidewallRatio  = :GUI:SpinField { 
+  	    entries = { },
+  	    top = 90, left = 195,
+	    height = 100, width = 100
+  	};
+
+        :GUI:SpinField tireRimDiam  = :GUI:SpinField { 
+  	    entries = { },
+  	    top = 90, left = 345,
+	    height = 100,  width = 100
+  	};
+
+        :GUI:SpinField isoGapTiming = :GUI:SpinField { 
+  	    top = 180, left = 280,
+	    height = 40,  width = 180,
+	    sideArrows = true,
+	    entries = { 
+		@:GUI:Option { text = "-", value = 0 },
+		@:GUI:Option { text = "1", value = 1 },
+		@:GUI:Option { text = "2", value = 2 },
+		@:GUI:Option { text = "3", value = 3 },
+		@:GUI:Option { text = "4", value = 4 },
+		@:GUI:Option { text = "5", value = 5 }
+	    },
+	    selected = 0
+	};
+
+	script confirmed when confirmed {
+	    .EngineBaseLib.engine.tireWidthDB.value = tireWidth.selected;
+	    .EngineBaseLib.engine.tireSidewallRatioDB.value = tireSidewallRatio.selected;
+	    .EngineBaseLib.engine.tireRimDiameterDB.value = tireRimDiam.selected;
+	    
+	    if (isoGapTiming.selected != 0) {
+		//		printf("Core: Setting iso gap time to [%d]\n", isoGapTiming.selected);
+		*.EngineBaseLib.engine.setConfigName = "iso_gap_time";
+		*.EngineBaseLib.engine.setConfigValue = isoGapTiming.selected;
+	    }
+
+// 	    printf("Installing [%d/%d/%d] as tire size in database.\n",
+// 		   tireWidth.selected, tireSidewallRatio.selected, tireRimDiam.selected);
+	}
+
+ 	script SetupWheelSizeDialog {
+ 	    // Fill out tireWidth
+ 	    ind = 0;
+ 	    foreach i in [145:405:10] {
+ 		tireWidth.entries[ind] = @:GUI:Option { text = sprintf("%d", i), value = i };
+ 		++ind;
+ 	    }
+ 	    *tireWidth.selected = .EngineBaseLib.engine.tireWidthDB.value;
+
+
+ 	    // Fill out tireSidewallRatio
+ 	    ind = 0;
+ 	    foreach i in [25:85:5] {
+ 		tireSidewallRatio.entries[ind] = @:GUI:Option { text = sprintf("%d", i), value = i };
+ 		++ind;
+ 	    }
+ 	    *tireSidewallRatio.selected = .EngineBaseLib.engine.tireSidewallRatioDB.value;
+
+ 	    // Fill out wheel diamater
+ 	    ind = 0;
+ 	    foreach i in [13:30] {
+ 		tireRimDiam.entries[ind] = @:GUI:Option { text = sprintf("%d", i), value = i };
+ 		++ind;
+ 	    }
+ 	    *tireRimDiam.selected = .EngineBaseLib.engine.tireRimDiameterDB.value;
+
+ 	    scrollPane.children = {
+ 		@Text {
+ 		    fontName = .GUI.systemFont,
+ 		    fontSize = 24,
+ 		    fontWeight = medium,
+ 		    fontColor = 0xDDDDDD,
+ 		    top = 0,
+ 		    left = 0,
+ 		    width <- pane.width,
+ 		    halign = center,
+ 		    text = "tire dimension"
+ 		},
+ 		@Shape { 
+ 		    top = 35, // border around graphs
+ 		    left = 0,
+ 		    shape = rectangle,
+ 		    fill = false,
+ 		    borderColor = 0xCCCCCC,
+ 		    transparency = 0.0,
+ 		    borderWidth = 1,
+ 		    contentHeight = 1,
+ 		    contentWidth <- pane.width
+ 		},
+ 		tireWidth,
+ 		@Text {
+ 		    fontName = .GUI.systemFont,
+ 		    fontSize = 40,
+ 		    fontWeight = medium,
+ 		    fontColor = 0xCCCCCC,
+ 		    text = "/",
+ 		    top = 85, 
+ 		    left = 165
+ 		},
+ 		tireSidewallRatio,
+ 		@Text {
+ 		    fontName = .GUI.systemFont,
+ 		    fontSize = 40,
+ 		    fontWeight = medium,
+ 		    fontColor = 0xCCCCCC,
+ 		    text = "/",
+ 		    top = 85, 
+ 		    left = 315
+ 		},
+ 		tireRimDiam
+//  		@Text {
+//  		    fontName = .GUI.systemFont,
+//  		    fontSize = 40,
+//  		    fontWeight = medium,
+//  		    fontColor = 0xCCCCCC,
+//  		    text = "iso gap time",
+//  		    top = 175, 
+//  		    left = 0
+//  		},
+// 		isoGapTiming
+ 	    };
+ 	}
+    };
+
+
+    //
+    // Setup gear ratios.
+    //
+    type SetupGearRatiosDialog: :GUI:DoneDialog {
+        public DDS @:GUI:DoneDialog.bgDDS = .GUI.dlg_bg_600x410;
+	event float rpm = 0;
+	event float kph = 0;
+	float tot_avg;
+	float stored_rpm;
+	float stored_kph;
+	int samples;
+	float min_ratio;
+	float max_ratio; 
+	event bool recBtnClicked[6];
+	event bool recTimer;
+	int ind;
+	int currentGear = -1;
+	Text statusTxt[6];
+
+	script recBtnClicked[0] || recBtnClicked[1] || recBtnClicked[2] ||
+	       recBtnClicked[3] || recBtnClicked[4] || recBtnClicked[5]  when 
+	       recBtnClicked[0] || recBtnClicked[1] || recBtnClicked[2] ||
+	       recBtnClicked[3] || recBtnClicked[4] || recBtnClicked[5] {
+
+	    recTimer <- @Timer { cycleInterval = 5.0 }.active;
+
+	    rpm = 0;
+	    kph = 0;
+
+	    rpm <- .EngineBaseLib.engine.channels[.EC.rpm].value;
+	    kph <- .EngineBaseLib.engine.channels[.EC.kph].value;
+
+	    .EngineBaseLib.engine.channels[.EC.rpm].usage = .EngineBaseLib.engine.channels[.EC.rpm].usage + 1;	    
+	    .EngineBaseLib.engine.channels[.EC.kph].usage = .EngineBaseLib.engine.channels[.EC.kph].usage + 1;	    
+
+
+	    // Rst
+	    min_ratio = 0.0;
+	    max_ratio = 0.0;
+	    samples = 0;
+	    tot_avg = 0;
+	    stored_kph = 0.0;
+	    stored_rpm = 0.0;
+
+	    // Locate gear to use.
+	    foreach currentGear in [0:5] {
+		if (updated(recBtnClicked[currentGear])) {
+		    statusTxt[currentGear].text = sprintf("Gear %d: [calibrating]", currentGear + 1);
+		    statusTxt[currentGear].transparency <- @ScalarInterpolator { 
+			key = { 0.0, 0.5, 1.0 }, 
+			keyValue = {0.0, 0.7, 0.0 },
+			value = 0.0,
+		        fraction <- @Timer { cycleInterval = 2.0, loop = true }.fraction
+		    }.value;
+		    break;
+		}
+	    }
+
+	    // Reset other calibration processes.
+	    foreach ind in [0:5] {
+		if (ind != currentGear) {
+		    if (.EngineBaseLib.engine.gearCalc.gearRatios[ind].value != 0.0) 
+			statusTxt[ind].text = sprintf("Gear %d: [done]", ind + 1);
+		    else
+			statusTxt[ind].text = sprintf("Gear %d: [not calibrated]", ind + 1);
+
+		    statusTxt[ind].transparency <-  @ScalarInterpolator { 
+			key = { 0.0, 1.0 }, keyValue = { statusTxt[ind].transparency, 0.0 },
+			value = statusTxt[ind].transparency,
+		        fraction <- @Timer { cycleInterval = 0.25 }.fraction
+		    }.value;
+		}
+	    }
+	}
+
+	script rpm when rpm > 0.0 {
+	    stored_rpm = rpm;
+
+	    if (stored_kph > 0) {
+		printf("rpm - ratio[%f]\n", stored_rpm / stored_kph);
+	        tot_avg = tot_avg + (stored_rpm / stored_kph);
+		samples++;
+		stored_rpm = 0;
+		stored_kph = 0;
+	    }
+	}
+
+	script kph when kph > 0.0 {
+	    stored_kph = kph;
+
+	    if (stored_rpm > 0) {
+		printf("rpm[%f] kph[%f] kph - ratio[%f]\n", stored_rpm, stored_kph, stored_rpm / stored_kph);
+	        tot_avg = tot_avg + (stored_rpm / stored_kph);
+		samples++;
+		// New min value
+		if (stored_rpm / stored_kph < min_ratio || min_ratio == 0.0)
+		    min_ratio = stored_rpm / stored_kph;
+
+		if (stored_rpm / stored_kph > max_ratio || max_ratio == 0.0)
+		    max_ratio = stored_rpm / stored_kph;
+
+		stored_rpm = 0;
+		stored_kph = 0;
+	    }
+	}
+
+	script rpm || kph when rpm != 0 && kph != 0 {
+	}
+
+	script recTimer when !recTimer {
+	    float avg_ratio = tot_avg / @float(samples);
+
+	    printf("tot_avg[%f] samples[%f] = [%f]\n", tot_avg, @float(samples), avg_ratio);
+
+	    rpm <- nil;
+	    kph <- nil;
+	    rpm = 0.0;
+	    kph = 0.0;
+	    stored_kph = 0.0;
+	    stored_rpm = 0.0;
+	    .EngineBaseLib.engine.channels[.EC.rpm].usage = .EngineBaseLib.engine.channels[.EC.rpm].usage - 1;	    
+	    .EngineBaseLib.engine.channels[.EC.kph].usage = .EngineBaseLib.engine.channels[.EC.kph].usage - 1;	    
+
+	    statusTxt[currentGear].transparency <-  @ScalarInterpolator { 
+		key = { 0.0, 1.0 }, keyValue = { statusTxt[currentGear].transparency, 0.0 },
+		value = statusTxt[currentGear].transparency,
+	        fraction <- @Timer { cycleInterval = 0.25 }.fraction
+	    }.value;
+	    //
+	    // Check for slippage. Allowed slippate interval is dependent on gear.
+	    //
+	    if ( tot_avg == 0 || (max_ratio - min_ratio) > avg_ratio * (((6.0 - currentGear) / 2) * 0.3)) {
+		printf("tot_avg[%f] max_ratio[%f] - min_ratio[%f] = [%f] > avg_ratio[%f] * 0.3\n",
+		       tot_avg, max_ratio, min_ratio, max_ratio - min_ratio, avg_ratio);
+		statusTxt[currentGear].text = sprintf("Gear %d: [failed calibration]", currentGear + 1);
+		currentGear = -1;
+		min_ratio = 0.0;	    
+		max_ratio = 0.0;	    
+		samples = 0.0;
+		avg_ratio = 0.0;
+		break;
+	    }
+
+	    min_ratio = 0.0;	    
+	    max_ratio = 0.0;	    
+	    samples = 0.0;
+	    .EngineBaseLib.engine.gearCalc.gearRatios[currentGear].value = avg_ratio;
+	    statusTxt[currentGear].text = sprintf("Gear %d: [done]", currentGear + 1);
+	    printf("Calibration complete for gear[%d] [%f]\n", currentGear, avg_ratio);
+	    avg_ratio = 0.0;
+	    currentGear = -1;
+	}
+
+	script confirmed when confirmed {
+	    float delta;
+	    int last_updated;
+	    //	    printf("Confirmed.\n");
+	    //
+	    // If there is sampling going on right now, abort it.
+	    //
+	    
+	    if (recTimer) {
+		//		printf("Aborting sampling\n");
+		kph <- nil;
+		rpm <- nil;
+		recTimer <- nil;
+		recTimer = false;
+		.EngineBaseLib.engine.channels[.EC.rpm].usage = .EngineBaseLib.engine.channels[.EC.rpm].usage - 1;	    
+		.EngineBaseLib.engine.channels[.EC.kph].usage = .EngineBaseLib.engine.channels[.EC.kph].usage - 1;	    
+	    }
+
+	    //
+	    // Setup the intervals
+	    //
+	    foreach ind in [1:5] {
+		float curr = .EngineBaseLib.engine.gearCalc.gearRatios[ind].value;
+		float prev = .EngineBaseLib.engine.gearCalc.gearRatios[ind - 1].value;
+
+		if (.EngineBaseLib.engine.gearCalc.gearRatios[ind].value == 0.0)
+		    break;
+
+		last_updated = ind;
+		// Find delta to next gear.
+		delta = (prev - curr) / 2;
+
+		.EngineBaseLib.engine.gearCalc.gearInterval[ind - 1].value = delta;
+// 		printf("gear[%d] ratio[%f] interval[%f]\n", 
+// 		       ind - 1, 
+// 		       .EngineBaseLib.engine.gearCalc.gearRatios[ind - 1].value,
+// 		       .EngineBaseLib.engine.gearCalc.gearInterval[ind - 1].value);
+	    }
+//	    printf("last_updated[%d]\n", last_updated);
+	    .EngineBaseLib.engine.gearCalc.gearInterval[last_updated].value = delta;
+
+	    // 	    printf("gear[%d] ratio[%f] interval[%f]\n", 
+	    // 		   last_updated,
+	    // 		   .EngineBaseLib.engine.gearCalc.gearRatios[last_updated].value,
+	    // 		   .EngineBaseLib.engine.gearCalc.gearInterval[last_updated].value);
+	}
+	
+	script SetupGearRatiosDialog {
+	    foreach ind in [0:5] {
+                :GUI:Button recBtn = :GUI:Button { ddsFile = "dds/OS-Symbol-Ok.dds", left = 0};
+
+		statusTxt[ind] = @Text {
+		    fontName = .GUI.systemFont,
+		    fontSize = 26,
+		    fontWeight = medium,
+		    fontColor = 0xCCCCCC,
+		    top = ind * 65 + 10,
+		    left = 80
+		};
+
+		if (.EngineBaseLib.engine.gearCalc.gearRatios[ind].value != 0.0) 
+		    statusTxt[ind].text = sprintf("Gear %d: [done]", ind + 1);
+		else
+		    statusTxt[ind].text = sprintf("Gear %d: [not calibrated]", ind + 1);
+
+		scrollPane.children[ind * 2] = statusTxt[ind];
+		recBtnClicked[ind] <- recBtn.clicked;
+		recBtn.top = ind * 65 - 18;
+		scrollPane.children[ind * 2 + 1] = recBtn;
+	    }
+	    @:GUI:TextDoneDialog {
+		//                bgDDS = .GUI.dlg_bg_600x410,
+		text = { 
+		    "WARNING:",
+		    "",
+		    "Obey all posted traffic laws.",
+		    "",
+		    "",
+		    "Magden Automotive LLC",
+		    "recommends performing this",
+		    "procedure in an off-highway",
+		    "location with no traffic."
+		},
+		    // Disable all buttons
+		    prevButton = :GUI:Button { buttonEnabled = false },
+		    nextButton = :GUI:Button { buttonEnabled = false },
+		    prevButtonBackground = DDS { },
+			nextButtonBackground = DDS { },
+			    buttonShadowDDSFile = ""
+				}.confirmed;
+
+	}
+	
+	script ~SetupGearRatiosDialog {
+	    //	    printf("SetupGearRatiosDialog:~SetupGearRatiosDialog\n");
+	}
+    };
+
+    //
+    // Install packets
+    //
+    type PacketInstallManager {
+ 	PacketManager packet_manager = @PacketManager { fifo = "/dev/packet_fifo" };
+ 	event bool install_confirm;
+ 	event bool install_cancel;
+ 	event bool reboot_conf;
+ 	event bool restart_conf;
+ 	event int installState <- packet_manager.installState;
+ 	event int postAction <- packet_manager.postAction;
+	
+	// Packet progress dialog.
+ 	type PacketProgressDialog: :GUI:DialogBase {
+            public DDS @:GUI:DialogBase.bgDDS = .GUI.dlg_bg_497x279;
+            public event float progress;
+            public event string packet;
+ 	    // No specific setup action needed.
+
+  	    pane.children = {
+		@Text {
+		    fontName = .GUI.systemFont,
+		    fontSize = 24,
+		    fontWeight = medium,
+		    fontColor = 0xCCCCCC,
+		    top = 0,
+		    left = 0,
+		    width <- pane.width,
+		    halign = center,
+		    text = "installing"
+		},
+		@Shape { 
+		    top = 35, // border around graphs
+		    left = 0,
+		    shape = rectangle,
+		    fill = false,
+		    borderColor = 0xCCCCCC,
+		    transparency = 0.0,
+		    borderWidth = 1,
+		    contentHeight = 1,
+		    contentWidth <- pane.width
+		},
+		@Shape { 
+		    borderWidth = 2, 
+		    borderColor = 0xA0A0A0, 
+		    shape = rectangle, 
+		    fill = false,
+		    top = 120,
+		    left = 10,
+		    contentHeight = 20,
+		    contentWidth <- pane.width - 40
+		},
+		@Shape { 
+		    borderWidth = 0, 
+		    fillColor = 0xA0A0A0,
+		    shape = rectangle, 
+		    fill = true,
+		    top = 120,
+		    left = 10,
+		    contentHeight = 20,
+		    contentWidth <- ((pane.width - 40) * progress)
+		},
+		@Text {
+		    fontName = .GUI.systemFont,
+		    fontSize = 30,
+		    fontWeight = medium,
+		    fontColor = 0xCCCCCC,
+		    top = 165,
+		    left = 0,
+		    width <- pane.width,
+		    halign = center,
+		    text = "do not power off or"
+		},
+		@Text {
+		    fontName = .GUI.systemFont,
+		    fontSize = 30,
+		    fontWeight = medium,
+		    fontColor = 0xCCCCCC,
+		    top = 195,
+		    left = 0,
+		    width <- pane.width,
+		    halign = center,
+		    text = "remove usb stick"
+		}
+  	    };
+	    background = true;
+	    backgroundColor = 0x000000;
+ 	    modal = true;
+ 	};
+
+ 	PacketProgressDialog progress_dlg;
+
+	// Failed packets dialog.
+ 	type FailedPacketsDialog: :GUI:DoneDialog {
+            public DDS @:GUI:DialogBase.bgDDS = .GUI.dlg_bg_600x410;
+	    public 
+	    string header_text= ""; // Set by caller
+ 	    string packets[];
+ 	    int ind = 0;
+
+  	    scrollPane.children = {
+		@Text {
+		    fontName = .GUI.systemFont,
+		    fontSize = 24,
+		    fontWeight = medium,
+		    fontColor = 0xDDDDDD,
+		    top = 0,
+		    left = 0,
+		    width <- pane.width,
+		    halign = center,
+		    text = header_text
+		},
+		@Shape { 
+		    top = 35, // border around graphs
+		    left = 0,
+		    shape = rectangle,
+		    fill = false,
+		    borderColor = 0xCCCCCC,
+		    transparency = 0.0,
+		    borderWidth = 1,
+		    contentHeight = 1,
+		    contentWidth <- pane.width
+		}
+  	    };
+
+ 	    // Add all packets.
+ 	    foreach ind in [ 0 : size(packets) - 1] {
+  		scrollPane.children[ind + 2] = @Text {
+  		    fontName = .GUI.systemFont,
+  		    fontSize = 20,
+  		    fontWeight = medium,
+  		    fontColor = 0xCCCCCC,
+  		    top = (ind) * 20 + 50,
+  		    left = 0,
+  		    text = packets[ind]
+  		};
+ 	    }
+ 	};
+
+	// Install confirm dialog
+ 	type PacketInstallDialog: :GUI:OkCancelDialog {
+            public DDS @:GUI:DialogBase.bgDDS = .GUI.dlg_bg_600x410;
+
+ 	    string packets[];
+ 	    int ind = 0;
+
+  	    scrollPane.children = {
+		@Text {
+		    fontName = .GUI.systemFont,
+		    fontSize = 24,
+		    fontWeight = medium,
+		    fontColor = 0xDDDDDD,
+		    top = 0,
+		    left = 0,
+		    width <- pane.width,
+		    halign = center,
+		    text = "install these packets from usb stick?"
+		},
+		@Shape { 
+		    top = 35, // border around graphs
+		    left = 0,
+		    shape = rectangle,
+		    fill = false,
+		    borderColor = 0xCCCCCC,
+		    transparency = 0.0,
+		    borderWidth = 1,
+		    contentHeight = 1,
+		    contentWidth <- pane.width
+		}
+  	    };
+
+ 	    // Add all packets.
+ 	    foreach ind in [ 0 : size(packets) - 1] {
+  		scrollPane.children[ind + 2] = @Text {
+  		    fontName = .GUI.systemFont,
+  		    fontSize = 20,
+  		    fontWeight = medium,
+  		    fontColor = 0xCCCCCC,
+  		    top = (ind) * 20 + 50,
+  		    left = 0,
+  		    text = packets[ind]
+  		};
+ 	    }
+ 	};
+
+ 	// PFL files ready for install
+ 	script installState when installState == 0 && size(packet_manager.packets) > 0 {
+	    PacketInstallDialog insdlg = @PacketInstallDialog { show = true, packets = packet_manager.packets  };
+	    install_confirm <- insdlg.confirmed;
+	    install_cancel <- insdlg.cancelled;
+ 	}
+
+	// Failed depecied
+ 	script installState when installState == 3 {
+	    packet_manager.installState = -1; // Rst install_state
+	    @FailedPacketsDialog { 
+		show = true, 
+		packets = packet_manager.failedDeps,
+		header_text = "packages needed to do install"
+            };
+	}
+
+	// Wrong targets
+ 	script installState when installState == 4 {
+	    packet_manager.installState = -1; // Rst install_state
+	    @FailedPacketsDialog { 
+		show = true, 
+		packets = packet_manager.wrongTarget,
+		header_text = sprintf("PACKAGES NOT FOR DEVICE %s-%s", substr(.M1.serial, 0, 3), substr(.M1.serial, 3, 3))
+	    };
+	}
+
+ 	// PFL installed. Have a look at post action
+ 	script installState when installState == 100 {
+ 	    *.GUI.dialogManager.removeDialog = progress_dlg;
+	    progress_dlg = nil;
+	    packet_manager.installState = -1; // Rst install_state
+ 	}
+
+ 	// Some fucker pulled the stick during install. Bad!
+ 	script installState when installState == 12 {
+ 	    *.GUI.dialogManager.removeDialog = progress_dlg;
+	    progress_dlg = nil;
+	    packet_manager.installState = -1; // Rst install_state
+	    restart_conf <- @:GUI:TextDoneDialog {
+		text = { 
+		    "install failed!", 
+		    "system may be corrupt.", 
+		    "please consider reloading the", 
+		    "system from a master stick",
+		    "available at magden-auto.com"
+		}
+	    }.confirmed;
+ 	}
+
+ 	// Some fucker pulled the stick before we installed. No damage
+ 	script installState when installState == 16 {
+ 	    *.GUI.dialogManager.removeDialog = progress_dlg;
+	    progress_dlg = nil;
+	    packet_manager.installState = -1; // Rst install_state
+	    @:GUI:TextDoneDialog {
+		text = { 
+		    "usb stick has been removed.", 
+		    "please insert the usb stick", 
+		    "and try again."
+		}
+	    };
+ 	}
+
+	script postAction when postAction == 1 {
+	    reboot_conf <- @:GUI:TextDoneDialog {
+		text = { "install complete.", "please remove usb stick", "and close this dialog to reboot." }
+	    }.confirmed;
+	}
+
+	script reboot_conf when reboot_conf {
+	    reboot();
+	}
+
+	script postAction when postAction == 2  || postAction == 3 || postAction == 5{
+	    restart_conf <- @:GUI:TextDoneDialog {
+		text = { "install complete.", "please remove usb stick", "and close this dialog to restart." }
+	    }.confirmed;
+	}
+
+	script restart_conf when restart_conf {
+	    .M1.halt = true;
+	}
+
+	// Confirm install
+ 	script install_confirm when install_confirm && installState == 0 {
+
+ 	    progress_dlg = @PacketProgressDialog { 
+		show = true, 
+		progress <- packet_manager.progress
+//		packet <- packet_manager.currentPacket
+	    };
+ 	    *packet_manager.install = true;
+ 	}
+
+	// Cancel
+ 	script install_cancel when install_cancel && installState == 0 {
+	    printf("Resetting install state\n");
+	    packet_manager.installState = -1; // Rst install_state
+ 	}
+    };
+
+    PacketInstallManager installManager = @PacketInstallManager {};
+
+    //
+    // SelectVehicleDialog
+    //
+    type SelectVehicleDialog: :GUI:DialogBase {
+        public bool @:GUI:DialogBase.show = true;
+	:GUI:Button ok = @:GUI:Button { ddsFile = "dds/OS-Symbol-Ok.dds", wantFocus = true , top=0, left=0};
+	:GUI:Button cancel = @:GUI:Button { ddsFile = "dds/OS-Symbol-Cancel.dds", wantFocus = true, top=0, left=95};
+	DDS okBackground = @DDS { ddsFile = "dds/OS-Button-Overlay.dds", top <- ok.top, left <- ok.left };
+	DDS cancelBackground = @DDS { ddsFile = "dds/OS-Button-Overlay.dds", top <- cancel.top, left <- cancel.left };
+	event bool ok_clicked <- ok.clicked;
+	event bool cancel_clicked <- cancel.clicked;
+	signed i;
+        public DDS @:GUI:DialogBase.bgDDS = .GUI.dlg_bg_497x360;
+	event int cur_veh = 0;
+	:GUI:Button prev = :GUI:Button { ddsFile = "dds/OS-Symbol-Back.dds" };
+	:GUI:Button next = :GUI:Button { ddsFile = "dds/OS-Symbol-Next.dds" };
+	DDS prevBackground = @DDS { ddsFile = "dds/OS-Button-Overlay.dds", top <- prev.top, left <- prev.left };
+	DDS nextBackground = @DDS { ddsFile = "dds/OS-Button-Overlay.dds", top <- next.top, left <- next.left };
+	event bool nextClicked <- next.clicked;
+	event bool prevClicked <- prev.clicked;
+	float leftMargin = 250;
+	int ind;
+	string labelStr[] =  { 
+	    "model year:", 
+	    "transmission:", 
+	    "engine type:", 
+	    "displacement (l):", 
+	    "gears:", 
+	    "dimentsions (in):", 
+	    "weight (lbs):",
+	    "shift point (rpm):",
+	    "redline (rpm):"
+	};
+	Text values[] = {};
+	Text labels[] = {};
+
+ 	Text makeModel = @Text {
+ 	    fontName = .GUI.systemFont,
+ 	    fontSize = 24,
+ 	    fontWeight = medium,
+	    fontColor = 0xDDDDDD,
+ 	    top = 0,
+ 	    left = 0,
+	    width <- pane.width,
+ 	    halign = center
+	};
+
+	Shape separator = @Shape { 
+		top = 35, // border around graphs
+		left = 0,
+		shape = rectangle,
+		fill = false,
+		borderColor = 0xCCCCCC,
+		transparency = 0.0,
+		borderWidth = 1,
+		contentHeight = 1,
+		contentWidth <- pane.width
+	};
+
+	Image image = @Image {
+	    top = 0,
+	    left = 0,
+	    width <- pane.width,
+	    height <- pane.height,
+	    halign = center,
+	    valign = center,
+	    transparency = 0.7
+	};
+	
+	script ok_clicked || cancel_clicked when (ok_clicked || cancel_clicked) && transparency != 1 {
+//	    printf("Dialog confirm: ok[%d] cancel[%d]\n", ok_clicked, cancel_clicked);
+	    if (ok_clicked == true)
+	        *confirmed = ok_clicked;
+
+	    *show = false;
+	}
+
+	script show when show == true {
+	    ok_clicked = false;
+	    cancel_clicked = false;
+	}
+
+
+
+	script nextClicked {
+	    if (cur_veh <  size(.EngineBaseLib.engine.vehicleProfiles) - 1) 
+		*cur_veh = cur_veh + 1;
+	    else 
+		*cur_veh = 0;
+	}
+
+	script prevClicked {
+	    if (cur_veh > 0 ) 
+		*cur_veh = cur_veh - 1;
+	    else 
+		*cur_veh = size(.EngineBaseLib.engine.vehicleProfiles) - 1;
+	}
+
+ 	// A new vehicle has been selected.
+ 	script cur_veh {
+	    bool gear_calib = false;
+	    int i;
+	    //	    printf("VehicleSelected[%d]\n", cur_veh);
+	    
+	    makeModel.text = sprintf("%s %s",
+				     .EngineBaseLib.engine.vehicleProfiles[cur_veh].make,
+				     .EngineBaseLib.engine.vehicleProfiles[cur_veh].model);
+					 
+	    // Year
+	    if (.EngineBaseLib.engine.vehicleProfiles[cur_veh].stopYear == 0)
+		values[0].text = sprintf("%d-current", 
+					 .EngineBaseLib.engine.vehicleProfiles[cur_veh].startYear);
+	    else
+		values[0].text = sprintf("%d-%d", 
+					 .EngineBaseLib.engine.vehicleProfiles[cur_veh].startYear,
+					 .EngineBaseLib.engine.vehicleProfiles[cur_veh].stopYear);
+					 
+	    // Transmission
+	    values[1].text = .EngineBaseLib.engine.vehicleProfiles[cur_veh].gearTypeLabel[.EngineBaseLib.engine.vehicleProfiles[cur_veh].gearType];
+
+	    
+
+	    // Engine type
+	    values[2].text = sprintf(.EngineBaseLib.engine.vehicleProfiles[cur_veh].cylinderConfigFormat[.EngineBaseLib.engine.vehicleProfiles[cur_veh].cylinderConfig],
+				     .EngineBaseLib.engine.vehicleProfiles[cur_veh].cylinderConfigLabel[.EngineBaseLib.engine.vehicleProfiles[cur_veh].cylinderConfig],
+				     .EngineBaseLib.engine.vehicleProfiles[cur_veh].cylinders);
+				     
+	    
+	    values[2].text = sprintf("%s %s", 
+				     values[2].text,
+				     .EngineBaseLib.engine.vehicleProfiles[cur_veh].turbo?"turbo":(.EngineBaseLib.engine.vehicleProfiles[cur_veh].superCharged?"supercharged":""));
+
+	    // Displacement
+	    values[3].text = sprintf("%1.2f", .EngineBaseLib.engine.vehicleProfiles[cur_veh].displacement / 100.0);
+	    
+	    values[4].text = sprintf("%d", .EngineBaseLib.engine.vehicleProfiles[cur_veh].gearCount);
+
+	    // Dimensions
+	    values[5].text = sprintf("%dx%dx%d", 
+				     @int(@float(.EngineBaseLib.engine.vehicleProfiles[cur_veh].length) / 2.54) ,
+				     @int(@float(.EngineBaseLib.engine.vehicleProfiles[cur_veh].width) / 2.54),
+				     @int(@float(.EngineBaseLib.engine.vehicleProfiles[cur_veh].height) / 2.54));
+	    // weight
+	    values[6].text = sprintf("%d", @int(@float(.EngineBaseLib.engine.vehicleProfiles[cur_veh].curbWeight) * 2.205));
+				  
+	    // Shift point
+	    if (.EngineBaseLib.engine.vehicleProfiles[cur_veh].chanProf[.EC.rpm].maxWarn != .EngineBaseLib.engine.vehicleProfiles[cur_veh].chanProf[.EC.rpm].max) 
+		values[7].text = sprintf("%.0f", .EngineBaseLib.engine.vehicleProfiles[cur_veh].chanProf[.EC.rpm].maxWarn);
+	    else
+		values[7].text = "n/a";
+
+	    // Redline point
+	    if (.EngineBaseLib.engine.vehicleProfiles[cur_veh].chanProf[.EC.rpm].maxCritical != .EngineBaseLib.engine.vehicleProfiles[cur_veh].chanProf[.EC.rpm].max) 
+		values[8].text = sprintf("%.0f", .EngineBaseLib.engine.vehicleProfiles[cur_veh].chanProf[.EC.rpm].maxCritical);
+	    else
+		values[8].text = "n/a";
+
+	    image.imageFile = .EngineBaseLib.engine.vehicleProfiles[cur_veh].imageFile;
+ 	}
+
+	// Select current vehicle.
+	script state when state == 1 {
+	    *cur_veh = .EngineBaseLib.engine.currentVehicleProfile;
+ 	}
+
+ 	script confirmed when confirmed {
+	    Psigned db_entry = Psigned { key = "core.selectedVehicle", value = 0 };
+	    if (db_entry.value != cur_veh) {
+		int ind;
+		db_entry.value = cur_veh;
+		*.EngineBaseLib.engine.currentVehicleProfile = cur_veh;
+
+		//
+		// Reset tire dimensions to stock.
+		//
+		.EngineBaseLib.engine.tireWidthDB.value = .EngineBaseLib.engine.vehicleProfiles[.EngineBaseLib.engine.currentVehicleProfile].tireWidth;
+		.EngineBaseLib.engine.tireSidewallRatioDB.value = .EngineBaseLib.engine.vehicleProfiles[.EngineBaseLib.engine.currentVehicleProfile].tireSidewallRatio;
+		.EngineBaseLib.engine.tireRimDiameterDB.value = .EngineBaseLib.engine.vehicleProfiles[.EngineBaseLib.engine.currentVehicleProfile].tireRimDiameter;
+
+		//
+		// Reset the gear ratios
+		//
+		foreach ind in [0:5] {
+		    .EngineBaseLib.engine.gearCalc.gearRatios[ind].value = 0.0;
+		}
+
+		//
+		// Reset the min/max values in DB.
+		//
+		foreach ind in [0: .EC.count - 1] {
+		    *.EngineBaseLib.engine.channels[ind].minDB.reset = true;
+		    *.EngineBaseLib.engine.channels[ind].maxDB.reset = true;
+		}
+		//
+		// Reset the maxHp table
+		//
+		.EngineBaseLib.engine.maxHp = @ScalarInterpolator { key = {}, keyValue = {} };
+		.EngineBaseLib.engine.storeMaxHpToDB = true;
+		.EngineBaseLib.engine.channels[.EC.hp].value <- nil;
+		.EngineBaseLib.engine.channels[.EC.hp].value = nil;
+		.EngineBaseLib.engine.channels[.EC.torque_nm].value <- nil;
+		.EngineBaseLib.engine.channels[.EC.torque_nm].value = nil;
+		
+		//		printf("SelectVehicle: Setting iso gap time to [%d]\n",.EngineBaseLib.engine.vehicleProfiles[cur_veh].isoGapTime);
+		*.EngineBaseLib.engine.setConfigName = "iso_gap_time";
+		*.EngineBaseLib.engine.setConfigValue = .EngineBaseLib.engine.vehicleProfiles[cur_veh].isoGapTime;
+	    }
+	    *show = false;
+ 	}
+
+	script transparency when show == false && state == 4 && transparency == 1.0  && manager != nil {
+	    //	    printf("SelectVehicle: Cleanup\n");
+	    ok = nil;
+	    cancel = nil;
+
+	    okBackground.top <- nil;
+	    okBackground.left <- nil;
+	    okBackground = nil;
+
+	    cancelBackground.top <- nil;
+	    cancelBackground.left <- nil;
+	    cancelBackground = nil;
+
+	    ok_clicked <- nil;
+	    cancel_clicked <- nil;
+
+	    cur_veh <- nil;
+	    
+	    prev = nil;
+	    next = nil;
+	    
+
+	    prevBackground.top <- nil;
+	    prevBackground.left <- nil;
+	    prevBackground = nil;
+
+	    nextBackground.top <- nil;
+	    nextBackground.left <- nil;
+	    nextBackground = nil;
+
+	    nextClicked <- nil;
+	    prevClicked <- nil;
+
+	    values = {};
+	    labels = {};
+
+	    makeModel.width <- nil;
+	    makeModel = nil;
+
+	    separator.contentWidth <- nil;
+	    separator = nil;
+	}
+
+	//
+	// Constructor.
+	//
+	script SelectVehicleDialog {
+	    pane.children = {  image, makeModel, separator };
+	    foreach ind in [ 0 : size(labelStr) - 1] {
+		// Add a background band for every other line
+		if ((ind % 2) == 0) 
+		    pane.children[size(pane.children)] = @Shape {
+			shape = rectangle,
+			fill = true,
+			borderWidth = 0,
+			top = 45 + ind * 30 + 3,
+			left = 0,
+			contentHeight = 20,
+			contentWidth <- pane.width,
+			fillColor = 0xFFFFFF,
+			transparency = 0.9
+		    };
+
+		labels[ind] = @Text {
+		    fontName = .GUI.systemFont,
+		    fontSize = 22,
+		    fontWeight = medium,
+		    fontColor = 0xDDDDDD,
+		    top = 45 + ind * 30,
+		    left = 0,
+		    text = labelStr[ind]
+		};
+
+		values[ind] = @Text {
+		    fontName = .GUI.systemFont,
+		    fontSize = 22,
+		    fontWeight = medium,
+		    fontColor = 0xDDDDDD,
+		    top = 45 + ind * 30,
+		    left = leftMargin
+		};
+
+		pane.children[size(pane.children)] = labels[ind];
+		pane.children[size(pane.children)] = values[ind];
+	    }
+
+	    pane.wantFocus = true;
+	    wantFocus = true;
+	    modal = true;
+
+	    buttons.top <- bgDDS.contentHeight / 2 - prev.contentHeight / 2;
+	    buttons.height <- bgDDS.contentHeight / 2 + 55;
+
+	    buttons.left <- bgDDS.left - 15;
+	    buttons.width <- bgDDS.contentWidth + 30;
+
+	    buttons.children[size(buttons.children)] = okBackground;
+	    buttons.children[size(buttons.children)] = ok;
+	    buttons.children[size(buttons.children)] = cancelBackground;
+	    buttons.children[size(buttons.children)] = cancel;
+	    buttons.children[size(buttons.children)] = prevBackground;
+	    buttons.children[size(buttons.children)] = prev;
+	    buttons.children[size(buttons.children)] = nextBackground;
+	    buttons.children[size(buttons.children)] = next;
+
+	    buttonShadow = @Layer { children = {  ok, cancel } };
+
+	    prev.top = 0;
+	    prev.left = 0;
+	    next.top = 0;
+	    next.left <- buttons.width - next.contentWidth;
+	    ok.top <- buttons.height - ok.contentHeight;
+	    ok.left <- buttons.width - 2 * (ok.contentWidth * 1.10) - 90;
+	    cancel.left <- buttons.width - (ok.contentWidth * 1.10) - 90;
+	    cancel.top <- ok.top;
+	}
+    };
+
+
+    //
+    // SET DATE AND TIME
+    //
+    type SetDateTimeDialog: :GUI:OkCancelDialog {
+	SysTime new_time = SysTime {};
+        public DDS @:GUI:OkCancelDialog.bgDDS = .GUI.dlg_bg_497x279;
+	int i;
+
+	// 
+	// Internal SpinField subclass used to manage
+	// a dynamic number of days per month.
+	//
+	type DayOfMonth: :GUI:SpinField {
+	    event signed maxDays = 31;
+	    int i;
+
+	    // Adjust the selected days if maxDays is changed.
+	    script maxDays  {
+		if (selected > maxDays) {
+		    //		    printf("maxDays[%d], selected[%d]\n", maxDays, selected);
+		    selected = maxDays ;
+		    textField.text = entries[index].text;
+		}
+	    }
+	    
+	    // This script is executed *before* parent script
+	    script next_clicked when next_clicked{
+		//		printf("NextClicked maxDays[%d] selected[%d]\n", maxDays, selected);
+
+		if (index == maxDays)
+		    index = -1; // Will be increased to 0 by parent.
+	    }
+
+	    script prev_clicked when prev_clicked {
+		//		printf("PrevClicked maxDays[%d] selected[%d], index[%d]\n", maxDays, selected, index);
+		if (index == 0) 
+		    index = maxDays + 1;
+	    }
+	    
+	    foreach i in [0:maxDays-1] {
+		entries[i] = @:GUI:Option { text = sprintf("%d", i + 1), value = i + 1 };
+	    }
+	};
+
+	//
+	// Days per month.
+	//
+	unsigned dpm[] = { 0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+
+ 	//
+ 	// Local spin field used to setup varying days of month.
+ 	//
+	// Month
+ 	:GUI:SpinField month_field = :GUI:SpinField { 
+  	    entries = { 
+  		:GUI:Option { text = "JAN", value = 1 }, :GUI:Option { text = "FEB", value = 2 }, :GUI:Option { text = "MAR", value = 3 }, 
+  		:GUI:Option { text = "APR", value = 4 }, :GUI:Option { text = "MAY", value = 5 }, :GUI:Option { text = "JUN", value = 6 }, 
+  		:GUI:Option { text = "JUL", value = 7 }, :GUI:Option { text = "AUG", value = 8 }, :GUI:Option { text = "SEP", value = 9 }, 
+  		:GUI:Option { text = "OCT", value = 10 }, :GUI:Option { text = "NOV", value = 11 }, :GUI:Option { text = "DEC", value = 12 }
+  	    },
+  	    top = 15,
+
+	    height = 90,
+  	    width = 130
+  	};
+
+	// Day
+    	DayOfMonth day_field = DayOfMonth {
+	    entries = { },
+    	    top = 15,
+    	    left = 170,
+	    height = 90,
+    	    width = 130
+    	};
+
+	
+	// Year
+ 	:GUI:SpinField year_field = :GUI:SpinField { 
+ 	    entries = { },
+ 	    top = 15,
+ 	    left = 330,
+	    height = 90,
+ 	    width = 130
+ 	};
+
+	
+ 	// Hour
+  	:GUI:SpinField hour_field =  :GUI:SpinField { 
+ 	    entries = { },
+ 	    top = 135,
+ 	    left = 10,
+	    height = 90,
+ 	    width = 130
+ 	};
+
+ 	// Minute
+ 	:GUI:SpinField minute_field = :GUI:SpinField { 
+ 	    entries = { },
+ 	    top = 135,
+ 	    left = 170,
+	    height = 90,
+ 	    width = 130
+ 	};
+
+
+ 	// AM/PM
+         :GUI:SpinField ampm_field = :GUI:SpinField { 
+ 	    entries = { 
+ 		:GUI:Option { text = "AM", value = 1 }, :GUI:Option { text = "PM", value = 2 }
+ 	    },
+ 	    top = 135,
+ 	    left = 330,
+	    height = 90,
+ 	    width = 130
+ 	};
+
+ 	event unsigned month_selected <- month_field.selected;
+
+ 	// We need to adjust the number of days per monthh.
+ 	script month_selected {
+ 	    // Limit the number of days per month.
+ 	    day_field.maxDays = dpm[month_selected];
+ 	}
+
+	script state when state == 1 {
+ 	    SysTime ct = SysTime {};
+
+ 	    year_field.selected = ct.year;
+ 	    month_field.selected = ct.month;
+	    *month_selected = ct.month;
+	    day_field.maxDays = dpm[month_selected];
+ 	    day_field.selected = ct.day;
+ 	    if (ct.hour > 12) {
+ 		hour_field.selected = ct.hour - 12;
+ 		ampm_field.selected = 2;
+ 	    } else {
+ 		hour_field.selected = ct.hour;
+ 		ampm_field.selected = 1;
+ 	    }
+ 	    minute_field.selected = ct.minute;
+ 	}
+
+ 	script confirmed when confirmed {
+	    new_time = SysTime {};
+ 	    new_time.year = year_field.selected;
+ 	    new_time.month =month_field.selected;
+ 	    new_time.day = day_field.selected;
+
+ 	    if (ampm_field.selected == 1)
+ 		new_time.hour = hour_field.selected;
+ 	    else
+ 		new_time.hour = hour_field.selected + 12;
+
+ 	    new_time.minute = minute_field.selected;
+ 	    new_time.second = 0;
+ 	    new_time.setTime = true;
+	    month_selected <- nil;
+ 	}
+
+	script transparency when show == false && state == 4 && transparency == 1.0  && manager != nil {
+	    //	    printf("SetDateTimeDialog: Cleanup\n");
+	    dpm = nil;
+	    month_selected <- nil;
+	    month_selected = 0;
+	    year_field = nil;
+	    month_field = nil;
+	    day_field = nil;
+	    hour_field = nil;
+	    minute_field = nil;
+	    ampm_field = nil;
+	    new_time = nil;
+	    scrollPane.children = {};
+	}
+	
+	script ~SetDateTimeDialog {
+	    //	    printf("SetDateTimeDialog: Destroyed\n");
+	}
+
+	script SetDateTimeDialog {
+	    foreach i in [2007:2036] {
+		year_field.entries[i - 2007] = @:GUI:Option { text = sprintf("%d", i), value = i };
+	    }
+
+	    foreach i in [1:12] {
+		hour_field.entries[i - 1] = @:GUI:Option { text = sprintf("%.2d", i), value = i };
+	    }
+
+	    foreach i in [0:59] {
+		minute_field.entries[i] = @:GUI:Option { text = sprintf("%.2d", i), value = i };
+	    }
+
+	    scrollPane.children = {
+		year_field,
+		month_field,
+		day_field,
+		hour_field, ampm_field,
+		minute_field
+	    };
+	}
+     };
+
+
+    //
+    // TOUCHSCREEN CALIBRATION
+    //
+    type TouchScreenCalibration: Layer {
+	event bool calibrate = false;
+	int circle_diam = 60;
+	event bool done = false;
+	event float x_offset <- (.ScreenLib.realXRes - .ScreenLib.xRes) / 2;
+	event float y_offset <- (.ScreenLib.realYRes - .ScreenLib.yRes) / 2;
+	event float skin_width <- .ScreenLib.xRes;
+	event float skin_height <- .ScreenLib.yRes;
+	event float circle_1_x <- x_offset + ( skin_width * 0.1);  // Center of first circle, in pixels from top left.
+	event float circle_1_y <- y_offset + ( skin_height * 0.1);  // Center of first circle, in pixels from top left.
+	event float circle_2_x <- x_offset + ( skin_width - (skin_width * 0.1));  // Center of second circle, in pixels from top left.
+	event float circle_2_y <- y_offset + ( skin_height * 0.1);  // Center of second circle, in pixels from top left.
+	event float circle_3_x <- x_offset + ( skin_width - (skin_width * 0.1));  // Center of second circle, in pixels from top left.
+	event float circle_3_y <- y_offset + ( skin_height - (skin_height * 0.1));  // Center of second circle, in pixels from top left.
+	event float circle_distance_y <- ( circle_3_y - circle_1_y);  // Number of screen pixels between circle centers.
+	event float circle_distance_x <- ( circle_3_x - circle_1_x);  // Number of screen pixels between circle centers.
+	event bool clickTimer;
+
+	//
+	// We need the raw X/Y coordinates directly from the device here, not
+	// the scaled input from .ScreenLib.inputStrategy.
+	// Button can still be read through the usual channel.
+	//
+	int currentState = 2;
+	float firstX;
+	float firstY;
+	float secondX;
+	float secondY;
+	float thirdX;
+	float thirdY;
+	event bool clicked = false;
+	unsigned lastClicked = 0;
+	event int clickCount;
+	bool clickLatch = false;
+	
+	Shape circle = @Shape { 
+	    top  = 0,
+	    left = 0,
+	    contentWidth  = circle_diam,
+	    contentHeight = circle_diam,
+	    fill = false,
+	    shape = 'e',
+	    borderWidth = 2,
+	    borderColor = 0x303030
+	};
+
+
+	Shape bg = @Shape { 
+	    top  = y_offset,
+	    left = x_offset,
+	    contentWidth <- skin_width,
+	    contentHeight <- skin_height,
+	    shape = rectangle,
+	    borderWidth = 0,
+	    fill = true,
+	    fillColor = 0xCCCCCC
+	};
+
+	Text msg = @Text {
+	    top = 0,
+	    left = 0,
+	    width <- width,
+	    height <- height,
+	    width = width,
+	    height = height,
+	    halign = center,
+	    valign = center,
+	    fontWeight = medium,
+	    fontColor = 0x202020,
+	    fontName = .GUI.systemFont,
+	    fontSize = .GUI.announceFontSize
+	};
+
+	script clickCount when clickCount == 10 {
+	    clickCount = 0;
+	    currentState = 1;
+	    *calibrate = true;
+	    clickTimer <- nil;
+	}
+
+	script clickTimer when !clickTimer {
+	    clickCount = 0;
+	    clickTimer <- nil;
+	}
+
+	script message when 
+	    (message.name == buttonUp) && (message.value == 1) && 
+	    (transparency == 0.9999) {
+	    clickLatch = false;
+	}
+
+	script message when 
+	    (message.name == buttonDown) && (message.value == 1) && 
+	    (transparency == 0.9999) &&
+
+	    !clickLatch {
+	    //	    printf("touschcreen click\n");
+	    clickLatch = true;
+	    *clickCount = clickCount + 1;
+	    clickTimer <- @Timer { cycleInterval = 0.5 }.active;
+	}
+
+	script message when
+	    (message.name == buttonUp) &&  (message.value == 1) && 
+	    (transparency == 0.0) && 
+	    !clicked && ((inow() - lastClicked) > 500) {
+	    lastClicked = inow();
+	    *clicked = true;
+	}
+	
+	script calibrate when calibrate {
+	    clicked = false;
+// 	    *width = .ScreenLib.xRes;
+// 	    *height = .ScreenLib.yRes;
+	    .ScreenLib.swapXY.value = false;
+	    .ScreenLib.invertX.value = false;
+	    .ScreenLib.invertY.value = false;
+	    .ScreenLib.minX.value = 0;
+	    .ScreenLib.maxX.value = 640;
+	    .ScreenLib.minY.value = 0;
+	    .ScreenLib.maxY.value = 480;
+
+	    circle.top = (circle_1_y - (circle_diam / 2));
+	    circle.left = (circle_1_x - (circle_diam / 2));
+// 	    circle_1_x = ( width * 0.1);  // Center of first circle, in pixels from top left.
+// 	    circle_1_y = ( height * 0.1);  // Center of first circle, in pixels from top left.
+// 	    circle_2_x = ( width - (width * 0.1));  // Center of second circle, in pixels from top left.
+// 	    circle_2_y = ( height * 0.1);  // Center of second circle, in pixels from top left.
+// 	    circle_3_x = ( width - (width * 0.1));  // Center of second circle, in pixels from top left.
+// 	    circle_3_y = ( height - (height * 0.1));  // Center of second circle, in pixels from top left.
+	    circle_distance_y = ( circle_3_y - circle_1_y);  // Number of screen pixels between circle centers.
+	    circle_distance_x = ( circle_3_x - circle_1_x);  // Number of screen pixels between circle centers.
+	    msg.text = "Please tap circle in upper left corner.";
+	    circle.top = (circle_1_y - (circle_diam / 2));
+	    circle.left = (circle_1_x - (circle_diam / 2));
+	    calibrate = false;
+	    transparency = 0.0;
+	    circle.transparency = 0.0;
+	    exclusiveFocus = true;
+	}
+	
+	script clicked when clicked && currentState == 2 && transparency == 0 {
+	    //	    printf("C2: rawX[%d] rawY[%d]\n", .ScreenLib.touchscreen.rawX, .ScreenLib.touchscreen.rawY);
+	    clicked = false;
+	    //	    printf("Width[%f] Height[%f]\n", width, height);
+	    firstX = .ScreenLib.touchscreen.rawX;
+	    firstY = .ScreenLib.touchscreen.rawY;
+	    circle.top = (circle_2_y - (circle_diam / 2));
+	    circle.left = (circle_2_x - (circle_diam / 2));
+	    msg.text = "Please tap circle in upper right corner.";
+	    currentState = 3;
+	}
+
+
+	script clicked when clicked && currentState == 1 && transparency == 0 {
+	    //	    printf("Passed c1\n");
+	    clicked = false;
+	    currentState = 2;
+	}
+
+
+	script clicked when clicked &&  currentState == 3  && transparency == 0 {
+	    //	    printf("C3 rawX[%d] rawY[%d]\n", .ScreenLib.touchscreen.rawX, .ScreenLib.touchscreen.rawY);
+	    clicked = false;
+	    secondX = .ScreenLib.touchscreen.rawX;
+	    secondY = .ScreenLib.touchscreen.rawY;
+	    circle.top = (circle_3_y - circle_diam / 2);
+	    circle.left = (circle_3_x - circle_diam / 2);
+	    msg.text = "Please tap circle in lower right corner.";
+	    currentState = 4;
+	}
+
+	script clicked when clicked && currentState == 4 && transparency == 0 {
+	    float tpoint_xratio;
+	    float tpoint_yratio;
+	    float t_circle_width;
+	    float t_circle_height;
+	    float t_width;
+	    float t_height;
+	    //	    printf("C4 rawX[%d] rawY[%d]\n", .ScreenLib.touchscreen.rawX, .ScreenLib.touchscreen.rawY);
+	    clicked = false;
+
+	    thirdX = .ScreenLib.touchscreen.rawX;
+	    thirdY = .ScreenLib.touchscreen.rawY;
+
+	    done = true;
+
+	    //
+	    // And now, the major calculations.
+	    //
+// 	    printf("Start values\n");
+// 	    printf("firstX             [%d]\n", @int(firstX));
+// 	    printf("firstY             [%d]\n", @int(firstY));
+// 	    printf("secondX            [%d]\n", @int(secondX));
+// 	    printf("secondY            [%d]\n", @int(secondY));
+// 	    printf("thirdX             [%d]\n", @int(thirdX));
+// 	    printf("thirdY             [%d]\n\n", @int(thirdY));
+
+	    //
+	    // Now, let's figure out if the Y (vertical), and X (horizontal) axis have been swapped.
+	    // We check this by seeing if first and second are within the same Y range.
+	    //
+	    if (firstY < secondY - 200 || firstY > secondY + 200) {
+		float tmp;
+		//		printf("Swapping X/Y axis.\n");
+		.ScreenLib.swapXY.value = true;
+ 		tmp = firstX; firstX = firstY; firstY = tmp;
+ 		tmp = secondX; secondX = secondY; secondY = tmp;
+ 		tmp = thirdX; thirdX = thirdY; thirdY = tmp;
+	    } else {
+		//		printf("Will not swap X/Y axis.\n");
+	        .ScreenLib.swapXY.value = false; // Will force the cration of this db entry
+	    }
+
+	    .ScreenLib.invertX.value = false;
+	    .ScreenLib.invertY.value = false;
+
+	    //
+	    // Figure out if X origo is left or right.
+	    //
+	    if (firstX > secondX) {
+		float tmp;
+		//		printf("FirstX[%d] > SecondX[%d]. Inverting X\n",  @int(firstX), @int(secondX));
+		.ScreenLib.invertX.value = true;
+
+ 		tmp = firstX;
+ 		firstX = secondX;
+ 		secondX = tmp;
+	    }
+
+ 	    //
+	    // Same thing for Y axis.
+	    //
+	    if (firstY > thirdY) {
+		float tmp;
+
+		//		printf("FirstY[%d] > ThirdY[%d]. Inverting Y\n",  @int(firstY), @int(thirdY));
+		.ScreenLib.invertY.value = true;
+
+  		tmp = firstY;
+ 		firstY = thirdY;
+ 		thirdY = tmp;
+	    }
+
+	    //
+	    // Now we need to figure out the minimum X value we will see.
+	    //
+	    // The distance between firstX and secondX is 570 - 70 = 500 pixels.
+	    // In order to calculate the leftmost X coordinate we will see, 
+	    //
+	    // The actual touchscreen span between the left and right edge (t_width) 
+	    // is (640/500)*(rawX - firstX).
+	    // Each screen pixel corresponds to 640/t_width touchscreen points (tpoint). 
+	    // The leftmost tpoint seen is firstX - (70 * (640/t_width));
+	    //
+	    // The rightmost point we will see is rawX + (70 * (640/t_width))
+	    //
+	    
+	    t_width = (width / circle_distance_x) * (secondX - firstX);
+	    tpoint_xratio = width / t_width;
+	    .ScreenLib.minX.value = firstX - (circle_1_x / tpoint_xratio);
+	    .ScreenLib.maxX.value = t_width + .ScreenLib.minX.value;
+
+	    //
+	    // Same for Y axis.
+	    //
+	    t_height = (height / circle_distance_y) * (thirdY - firstY);
+	    tpoint_yratio = height / t_height;
+	    .ScreenLib.minY.value = firstY - (circle_1_y / tpoint_yratio);
+	    .ScreenLib.maxY.value = t_height + .ScreenLib.minY.value;
+
+	    if (.ScreenLib.minY.value == .ScreenLib.maxY.value)
+	        .ScreenLib.maxY.value = .ScreenLib.maxY.value + 1;
+
+	    if (.ScreenLib.minX.value == .ScreenLib.maxX.value)
+	        .ScreenLib.maxX.value = .ScreenLib.maxX.value + 1;
+
+
+	    //
+	    // Sanity check,
+	    //
+	    if (.ScreenLib.minY.value < 0)
+	        .ScreenLib.minY.value = 0;
+
+	    if (.ScreenLib.minX.value < 0)
+	        .ScreenLib.minX.value = 0;
+
+
+//  	    printf("screenWidth        [%f]\n", width);
+//  	    printf("screenHeight       [%f]\n", height);
+//  	    printf("circle_distance_x  [%f]\n", circle_distance_x);
+//  	    printf("circle_distance_y  [%f]\n", circle_distance_y);
+//  	    printf("circle_1_x         [%f]\n", circle_1_x);
+//  	    printf("circle_1_y         [%f]\n", circle_1_y);
+//  	    printf("firstX             [%d]\n", @int(firstX));
+//  	    printf("firstY             [%d]\n", @int(firstY));
+//  	    printf("secondX            [%d]\n", @int(secondX));
+//  	    printf("secondY            [%d]\n", @int(secondY));
+//  	    printf("thirdX             [%d]\n", @int(thirdX));
+//  	    printf("thirdY             [%d]\n", @int(thirdY));
+//  	    printf("t_width            [%f]\n", t_width);
+//  	    printf("t_height           [%f]\n", t_height);
+//  	    printf("tpoint_xratio      [%f]\n", tpoint_xratio);
+//  	    printf("tpoint_yratio      [%f]\n", tpoint_yratio);
+//  	    printf("minX               [%d]\n", .ScreenLib.minX.value);
+//  	    printf("minY               [%d]\n", .ScreenLib.minY.value);
+//  	    printf("maxX               [%d]\n", .ScreenLib.maxX.value);
+//  	    printf("maxY               [%d]\n", .ScreenLib.maxY.value);
+//  	    printf("invertX            [%d]\n", .ScreenLib.invertX.value?1:0);
+//  	    printf("invertY            [%d]\n\n", .ScreenLib.invertY.value?1:0);
+
+
+	    transparency = .9999;
+	    circle.transparency = 1.0;
+	    exclusiveFocus = false;
+	    currentState = 1;
+	}
+
+	//
+	// Constructor setup code.
+	//
+	//	top <- y_offset;
+	//	left <- x_offset;
+	top = 0;
+	left = 0;
+	messageMask = @Message.message_mask_button;
+	wantFocus = true;
+	exclusiveFocus = false;
+	children= { bg, msg, circle };
+	currentState = 1;
+	width <- .ScreenLib.realXRes;
+	height <- .ScreenLib.realYRes;
+
+	// ADDED THE FOLLOWINMG TWO LINES TO MAKE CALIBRATE SCREEN WORK!
+	*width = .ScreenLib.realXRes;
+	*height = .ScreenLib.realYRes;
+	*x_offset = (.ScreenLib.realXRes - .ScreenLib.xRes) / 2;
+	*y_offset = (.ScreenLib.realYRes - .ScreenLib.yRes) / 2;
+	*skin_width = .ScreenLib.xRes;
+	*skin_height = .ScreenLib.yRes;
+	skin_width <- .ScreenLib.xRes;
+	skin_height <- .ScreenLib.yRes;
+
+	transparency = .9999; // Almost invisible, but we still get clicks!
+	circle.transparency = 1.0;
+    };
+
+    TouchScreenCalibration touchscreenCalibration = TouchScreenCalibration {};
+
+
+
+    //					       
+    // RESET SCREEN RESOLUTION.
+    // If the touchscreen is held for 30 seconds, we will reset the screen resolution.
+    //
+    type ResetScreenResolution: Layer {
+	event bool clickTimer;
+	bool resetted = false;
+
+	// Button down, start timer
+	script message when (message.name == buttonDown) && (message.value == 1) {
+//	    printf("Starting timer\n");
+	    clickTimer <- @Timer { cycleInterval = 10 }.active;
+	    resetted = false;
+	}
+
+	// Button up
+	script message when (message.name == buttonUp) && (message.value == 1) {
+//	    printf("Stopping timer\n");
+	    clickTimer <- nil;
+	}
+	
+	script clickTimer when !clickTimer  {
+	    Pbool recalibrate = Pbool { key = "core.touch_screen.recalibrate", value = false };
+	    Pbool inhibit_waiver = Pbool { key = "core.inhibit_startup_waiver", value = false };
+
+	    	    printf("Resetting screen resolution\n");
+	    clickTimer <- nil;
+	    .ScreenLib.currentResDB.value = 0;
+	    touchscreenCalibration.currentState = 2;
+	    touchscreenCalibration.calibrate = true;
+	    //	    recalibrate.value = true;
+            //	    inhibit_waiver.value = true;
+	    //	    .M1.halt = 10; // Give time to reset
+	}
+	
+	script ResetScreenResolution {
+	    top = 0;
+	    left = 0;
+	    messageMask = @Message.message_mask_button;
+	    wantFocus = true;
+	    exclusiveFocus = false;
+	    width <- .ScreenLib.realXRes;
+	    height <- .ScreenLib.realYRes;
+	    *width = .ScreenLib.realXRes;
+	    *height = .ScreenLib.realYRes;
+	    top  = 0;
+	    left = 0;
+	}
+    };
+
+    ResetScreenResolution resetScreenResolution = @ResetScreenResolution {};
+
+    //
+    // SELECT SCREEN RESOLUTION DIALOG
+    //
+    type SelectScreenDialog: :GUI:DialogBase {
+        public bool @:GUI:DialogBase.show = true;
+	:GUI:Button ok = @:GUI:Button { ddsFile = "dds/OS-Symbol-Ok.dds", wantFocus = true , top=0, left=0};
+	:GUI:Button cancel = @:GUI:Button { ddsFile = "dds/OS-Symbol-Cancel.dds", wantFocus = true, top=0, left=95};
+	DDS okBackground = @DDS { ddsFile = "dds/OS-Button-Overlay.dds", top <- ok.top, left <- ok.left };
+	DDS cancelBackground = @DDS { ddsFile = "dds/OS-Button-Overlay.dds", top <- cancel.top, left <- cancel.left };
+	event bool ok_clicked <- ok.clicked;
+	event bool cancel_clicked <- cancel.clicked;
+	
+        public DDS @:GUI:DialogBase.bgDDS = .GUI.dlg_bg_497x360;
+	event int cur_scr = 0;
+	:GUI:Button prev = :GUI:Button { ddsFile = "dds/OS-Symbol-Back.dds" };
+	:GUI:Button next = :GUI:Button { ddsFile = "dds/OS-Symbol-Next.dds" };
+	DDS prevBackground = @DDS { ddsFile = "dds/OS-Button-Overlay.dds", top <- prev.top, left <- prev.left };
+	DDS nextBackground = @DDS { ddsFile = "dds/OS-Button-Overlay.dds", top <- next.top, left <- next.left };
+	event bool nextClicked <- next.clicked;
+	event bool prevClicked <- prev.clicked;
+	float leftMargin = 280;
+	int ind;
+	string labelStr[] =  { 
+	    "aspect ratio:", 
+	    "signal:", 
+	    "height x width:",	
+	    "pix clock:",
+	    "left / right margin:",
+	    "upper /lower margin:",
+	    "horiz /vert sync len:"
+	};
+	Text values[] = {};
+	Text labels[] = {};
+
+ 	Text screenType = @Text {
+ 	    fontName = .GUI.systemFont,
+ 	    fontSize = 24,
+ 	    fontWeight = medium,
+	    fontColor = 0xDDDDDD,
+ 	    top = 0,
+ 	    left = 0,
+	    width <- pane.width,
+ 	    halign = center
+	};
+
+	Shape separator = @Shape { 
+		top = 35,
+		left = 0,
+		shape = rectangle,
+		fill = false,
+		borderColor = 0xCCCCCC,
+		transparency = 0.0,
+		borderWidth = 1,
+		contentHeight = 1,
+		contentWidth <- pane.width
+	};
+	
+	script ok_clicked || cancel_clicked when (ok_clicked || cancel_clicked) && transparency != 1 {
+//	    printf("Dialog confirm: ok[%d] cancel[%d]\n", ok_clicked, cancel_clicked);
+	    if (ok_clicked == true)
+	        *confirmed = ok_clicked;
+
+	    *show = false;
+	}
+
+	script show when show == true {
+	    ok_clicked = false;
+	    cancel_clicked = false;
+	}
+
+
+	script nextClicked {
+	    if (cur_scr <  size(.ScreenLib.resolution) - 1) 
+		*cur_scr = cur_scr + 1;
+	    else 
+		*cur_scr = 0;
+	}
+
+	script prevClicked {
+	    if (cur_scr > 0 ) 
+		*cur_scr = cur_scr - 1;
+	    else 
+		*cur_scr = size(.ScreenLib.resolution) - 1;
+	}
+
+ 	// A new screen has been selected.
+ 	script cur_scr {
+	    //	    printf("ScreenSelected[%d]\n", cur_scr);
+	    
+	    screenType.text =  .ScreenLib.resolution[cur_scr].label;
+					 
+	    values[0].text =  .ScreenLib.resolution[cur_scr].aspectRatio; // Aspect ratio
+	    values[1].text = "";
+	    if (.ScreenLib.resolution[cur_scr].tvOut)
+		values[1].text = "tv ";
+
+	    if (.ScreenLib.resolution[cur_scr].vgaOut)
+		values[1].text += "vga ";
+	    
+	    if (.ScreenLib.resolution[cur_scr].dviOut)
+		values[1].text += "dvi ";
+
+	    values[2].text = sprintf("%d x %d",
+				     .ScreenLib.resolution[cur_scr].realYRes, .ScreenLib.resolution[cur_scr].realXRes);
+
+	    values[3].text =  sprintf("%d", .ScreenLib.resolution[cur_scr].pixClock); // pixclock
+
+	    values[4].text = sprintf("%d / %d",
+				     .ScreenLib.resolution[cur_scr].leftMargin, .ScreenLib.resolution[cur_scr].rightMargin);
+
+	    values[5].text = sprintf("%d / %d",
+				     .ScreenLib.resolution[cur_scr].upperMargin, .ScreenLib.resolution[cur_scr].lowerMargin);
+
+	    values[6].text = sprintf("%d / %d",
+				     .ScreenLib.resolution[cur_scr].hSyncLen, .ScreenLib.resolution[cur_scr].vSyncLen);
+ 	}
+
+	// Select current vehicle.
+	script state when state == 1 {
+	    *cur_scr = .ScreenLib.currentResDB.value;
+ 	}
+
+ 	script confirmed when confirmed {
+	    int act_dev_cnt = 0;
+	    *show = false;
+	    //	    printf("SelectScreenDialog: Confirmed. SelectedValue[%d]\n", cur_scr);
+	    if (.ScreenLib.currentResDB.value != cur_scr) {
+ 		.ScreenLib.currentResDB.value = cur_scr;
+		touchscreenCalibration.currentState = 2;
+		touchscreenCalibration.calibrate = true;
+		// 		Pbool recalibrate = Pbool { key = "core.touch_screen.recalibrate", value = false };
+// 		Pbool inhibit_waiver = Pbool { key = "core.inhibit_startup_waiver", value = false };
+
+// 		recalibrate.value = true;
+// 		inhibit_waiver.value = true;
+//		.M1.halt = 10;
+	    }
+ 	}
+
+	script transparency when show == false && state == 4 && transparency == 1.0  && manager != nil {
+	    //	    printf("SelectScreenDialog: Cleanup\n");
+	    ok = nil;
+	    cancel = nil;
+
+	    okBackground.top <- nil;
+	    okBackground.left <- nil;
+	    okBackground = nil;
+
+	    cancelBackground.top <- nil;
+	    cancelBackground.left <- nil;
+	    cancelBackground = nil;
+
+	    ok_clicked <- nil;
+	    cancel_clicked <- nil;
+
+	    cur_scr <- nil;
+	    
+	    prev = nil;
+	    next = nil;
+	    
+
+	    prevBackground.top <- nil;
+	    prevBackground.left <- nil;
+	    prevBackground = nil;
+
+	    nextBackground.top <- nil;
+	    nextBackground.left <- nil;
+	    nextBackground = nil;
+
+	    nextClicked <- nil;
+	    prevClicked <- nil;
+
+	    values = {};
+	    labels = {};
+
+	    screenType.width <- nil;
+	    screenType = nil;
+
+	    separator.contentWidth <- nil;
+	    separator = nil;
+	}
+
+	script ~SelectScreenDialog {
+	    //	    printf("SelectScreenDialog: Destroy\n");
+	}
+	//
+	// Constructor.
+	//
+	script SelectScreenDialog {
+	    pane.children = {  screenType, separator };
+	    foreach ind in [ 0 : size(labelStr) - 1] {
+		// Add a background band for every other line
+		if ((ind % 2) == 0) 
+		    pane.children[size(pane.children)] = @Shape {
+			shape = rectangle,
+			fill = true,
+			borderWidth = 0,
+			top = 80 + ind * 30 + 3,
+			left = 0,
+			contentHeight = 20,
+			contentWidth <- pane.width,
+			fillColor = 0xFFFFFF,
+			transparency = 0.9
+		    };
+
+		labels[ind] = @Text {
+		    fontName = .GUI.systemFont,
+		    fontSize = 22,
+		    fontWeight = medium,
+		    fontColor = 0xDDDDDD,
+		    top = 80 + ind * 30,
+		    left = 0,
+		    text = labelStr[ind]
+		};
+
+		values[ind] = @Text {
+		    fontName = .GUI.systemFont,
+		    fontSize = 22,
+		    fontWeight = medium,
+		    fontColor = 0xDDDDDD,
+		    top = 80 + ind * 30,
+		    left = leftMargin
+		};
+
+		pane.children[size(pane.children)] = labels[ind];
+		pane.children[size(pane.children)] = values[ind];
+	    }
+
+	    pane.wantFocus = true;
+	    wantFocus = true;
+	    buttons.top <- bgDDS.contentHeight / 2 - prev.contentHeight / 2;
+	    buttons.height <- bgDDS.contentHeight / 2 + 55;
+
+	    buttons.left <- bgDDS.left - 15;
+	    buttons.width <- bgDDS.contentWidth + 30;
+
+	    buttons.children[size(buttons.children)] = okBackground;
+	    buttons.children[size(buttons.children)] = ok;
+	    buttons.children[size(buttons.children)] = cancelBackground;
+	    buttons.children[size(buttons.children)] = cancel;
+
+	    buttons.children[size(buttons.children)] = prevBackground;
+	    buttons.children[size(buttons.children)] = prev;
+	    buttons.children[size(buttons.children)] = nextBackground;
+	    buttons.children[size(buttons.children)] = next;
+
+	    buttonShadow = @Layer { children = {  ok, cancel } };
+
+	    prev.top = 0;
+	    prev.left = 0;
+	    next.top = 0;
+	    next.left <- buttons.width - next.contentWidth;
+	    ok.top <- buttons.height - ok.contentHeight;
+	    ok.left <- buttons.width - 2 * (ok.contentWidth * 1.10) - 90;
+	    cancel.left <- buttons.width - (ok.contentWidth * 1.10) - 90;
+	    cancel.top <- ok.top;
+	}
+    };
+
+    //
+    // SETUP DIALOG
+    //
+    type SetupDialog: :GUI:DoneDialog {
+        public DDS @:GUI:DoneDialog.bgDDS = .GUI.dlg_bg_410x410;
+        public DDS @:GUI:DoneDialog.buttonsOffset = -10;
+	int offset = 100;
+	PacketInfo pf_info = @PacketInfo {}; // Get serial numbers and installed packages.
+ 	// 
+ 	:GUI:Button set_vehicle = :GUI:Button { ddsFile = "dds/OS-MenuIcon-CarKeys.dds",   top = -10, left = 10 };
+ 	:GUI:Button setup_gear_ratios = :GUI:Button { ddsFile = "dds/OS-MenuIcon-GearCalibration.dds",   top = -10, left = 195  };
+ 	:GUI:Button setup_powerrun = :GUI:Button { ddsFile = "dds/OS-MenuIcon-PowerRun.dds",   top = 175, left = 10  };
+ 	:GUI:Button setup_ad_channels = :GUI:Button { ddsFile = "dds/OS-MenuIcon-AESensor.dds",   top = 175, left = 195  };
+ 	:GUI:Button set_screen_resolution = :GUI:Button { ddsFile = "dds/OS-MenuIcon-Resolution.dds", top = -10, left = 380 };
+ 	:GUI:Button set_touchscreen_calibration = :GUI:Button { ddsFile = "dds/OS-MenuIcon-Calibration.dds",  top = -10, left = 575  };
+ 	:GUI:Button set_date_time = :GUI:Button { ddsFile = "dds/OS-MenuIcon-TimeDate.dds",   top = 175, left = 380 };
+ 	:GUI:Button setup_wheel_size = :GUI:Button { ddsFile = "dds/OS-MenuIcon-TireSize.dds",   top = 175, left = 575 };
+	string packet;
+	string old_from;
+	string new_from;
+ 	event bool set_date_time_clicked <- set_date_time.clicked;
+ 	event bool set_vehicle_clicked <- set_vehicle.clicked;
+ 	event bool setup_wheel_size_clicked <- setup_wheel_size.clicked;
+ 	event bool screen_resolution_clicked <- set_screen_resolution.clicked;
+ 	event bool touchscreen_calibration_clicked <- set_touchscreen_calibration.clicked;
+ 	event bool setup_ad_channels_clicked <- setup_ad_channels.clicked;
+ 	event bool setup_gear_ratios_clicked <- setup_gear_ratios.clicked;
+ 	event bool setup_powerrun_clicked <- setup_powerrun.clicked;
+
+  	script set_date_time_clicked {
+// 	    printf("SetDateTimeClicked\n");
+	    @SetDateTimeDialog { show = true};
+	    *show = 0;
+  	}
+
+
+  	script setup_ad_channels_clicked  {
+// 	    printf("SetupADChannels clicked\n");
+	    if (!size(.ADManager.usbDevices)) {
+		@:GUI:TextDoneDialog {
+		    bgDDS = .GUI.dlg_bg_410x236,			
+			textFormat = @Text {
+			fontName = .GUI.systemFont,
+			fontSize = 24,
+			fontWeight = medium,
+			fontColor = 0xCCCCCC,
+			halign = center
+		    },
+		    text = {
+			"no a/d devices are",
+			"currently connected.",
+			"",
+			"please attach one or more",
+			"devices and try again."
+			
+		   }
+		};
+	    } else
+		@:ADManager:SetupADChannelsDialog { show = true};
+	    *show = 0;
+  	}
+
+  	script setup_gear_ratios_clicked  {
+// 	    printf("SetupADChannels clicked\n");
+	    @SetupGearRatiosDialog { show = true };
+	    *show = 0;
+  	}
+
+  	script set_vehicle_clicked  {
+// 	    printf("SetVehicleClicked\n");
+	    @SelectVehicleDialog { show = true};
+	    *show = 0;
+  	}
+
+ 	script screen_resolution_clicked {
+
+	    @SelectScreenDialog { show = true};
+	    *show = 0;
+ 	}
+
+ 	script touchscreen_calibration_clicked {
+	    touchscreenCalibration.currentState = 2;
+	    touchscreenCalibration.calibrate = true;
+	    *show = 0;
+ 	}
+
+  	script setup_wheel_size_clicked {
+	    @SetupWheelSizeDialog { show = true};
+	    *show = 0;
+  	}
+
+  	script setup_powerrun_clicked {
+	    @PowerRunManager {};
+	    *show = 0;
+  	}
+
+	scrollPane.children = {
+	    @Text {
+		top = 135, left = 48,
+		fontWeight = medium, fontColor = 0xAAAAAA,
+		fontName = .GUI.systemFont, fontSize = .GUI.announceFontSize,
+		text = "vehicle"
+	    },
+	    @Text {
+		top = 135, left = 213,
+		fontWeight = medium, fontColor = 0xAAAAAA,
+		fontName = .GUI.systemFont, fontSize = .GUI.announceFontSize,
+		text = "gear setup"
+	    },
+	    @Text {
+		top = 135, left = 425,
+		fontWeight = medium, fontColor = 0xAAAAAA,
+		fontName = .GUI.systemFont, fontSize = .GUI.announceFontSize,
+		text = "screen"
+	    },
+	    @Text {
+		top = 135, left = 580,
+		fontWeight = medium, fontColor = 0xAAAAAA,
+		fontName = .GUI.systemFont, fontSize = .GUI.announceFontSize,
+		text = "touchscreen"
+	    },
+	    @Text {
+		top = 320, left = 30,
+		fontWeight = medium, fontColor = 0xAAAAAA,
+		fontName = .GUI.systemFont, fontSize = .GUI.announceFontSize,
+		text = "power run"
+	    },
+	    @Text {
+		top = 320, left = 200,
+		fontWeight = medium, fontColor = 0xAAAAAA,
+		fontName = .GUI.systemFont, fontSize = .GUI.announceFontSize,
+		text = "a/d channels"
+	    },
+	    @Text {
+		top = 320, left = 405,
+
+		fontWeight = medium, fontColor = 0xAAAAAA,
+		fontName = .GUI.systemFont, fontSize = .GUI.announceFontSize,
+		text = "set clock"
+	    },
+	    @Text {
+		top = 320, left = 600,
+		fontWeight = medium, fontColor = 0xAAAAAA,
+		fontName = .GUI.systemFont, fontSize = .GUI.announceFontSize,
+		text = "tire size"
+	    },
+	    set_touchscreen_calibration,
+	    set_screen_resolution,
+	    set_vehicle, 
+	    setup_wheel_size,
+	    set_date_time,
+	    setup_ad_channels,
+	    setup_gear_ratios,
+	    setup_powerrun
+	};
+	
+	// Add final screen with about dialog.
+	scrollPane.children += @Text {
+	    top = 0, 
+	    left = 795 , 
+		text = sprintf("M.1 SERIAL: %s-%s", substr(pf_info.serial, 0, 3), substr(pf_info.serial, 3, 3)),
+	    fontWeight = medium, 
+	    fontColor = 0xAAAAAA,
+	    fontName = .GUI.systemFont, 
+	    fontSize = .GUI.announceFontSize
+	};
+
+	scrollPane.children += @Shape { 
+		top = 35, // border around graphs
+		left = 780,
+		shape = rectangle,
+		fill = false,
+		borderColor = 0xCCCCCC,
+		transparency = 0.0,
+		borderWidth = 1,
+		contentHeight = 1,
+		contentWidth = 340
+	};
+
+
+	
+	// Add header for installed packages
+	scrollPane.children += @Text {
+	    top = 45, 
+	    left = 780 , 
+	    text = sprintf("installed packages:", substr(pf_info.serial, 0, 3), substr(pf_info.serial, 3, 3)),
+	    fontWeight = medium, 
+	    fontColor = 0xAAAAAA,
+	    fontName = .GUI.systemFont, 
+	    fontSize = .GUI.announceFontSize
+	};
+
+
+	offset = 75;
+	old_from = "";
+	foreach packet in pf_info.packets {
+	    string new_from = substr(packet, 0, strchr(packet, '/'));
+	    // Time to install a new header?
+	    if (new_from != old_from) {
+		if (old_from != "")
+		    offset += 10;
+		scrollPane.children += @Text {
+		    top = offset, 
+		    left = 780, 
+			text = sprintf("from %s", new_from),
+		    fontWeight = medium, 
+		    fontColor = 0xAAAAAA,
+		    fontName = .GUI.systemFont, 
+		    fontSize = 20
+		};
+		old_from = new_from;
+		offset += 20;
+	    }
+
+	    scrollPane.children += @Text {
+		top = offset, 
+		left = 800, 
+		    text = substr(packet, (strchr(packet, '/') + 1) , 0),
+	        fontWeight = medium, 
+	        fontColor = 0xAAAAAA,
+	        fontName = .GUI.systemFont, 
+	        fontSize = 20
+	    };
+	    offset += 20;
+	}
+    };
+
+    //
+    // LOG REPLAY DIALOG
+    //
+    type ReplayDialog: :GUI:DialogBase {
+        public bool @:GUI:DialogBase.show = true;
+        public DDS @:GUI:DialogBase.bgDDS = .GUI.dlg_bg_600x410;
+	:GUI:Button done = :GUI:Button { ddsFile = "dds/OS-Symbol-Ok.dds" };
+	DDS doneBackground = @DDS { ddsFile = "dds/OS-Button-Overlay.dds", top <- done.top, left <- done.left };
+	event bool done_clicked <- done.clicked;
+
+	// Used to keep track of which samples the
+	// timeline is currently between.
+	// Used to calculate the exact value of each channel
+	// at the point of the timeline.
+	type Interval {
+	    SamplerBase sampler; 
+	    Float cur_val;  // Text object to update
+	    time p_t = 0; // prev time
+	    time n_t = 0; // next_time
+	    float p_v = 0.0; // prev_val
+	    float n_v = 0.0; // next_val
+	    int ind = 0; // Index into samples.values()
+	    event time c_t; // Current time.
+	    event float c_v <- p_v + ((n_v - p_v) * (@float(c_t - p_t)) / (@float(n_t - p_t))); // Current value
+	    float org_left = -0.1;
+
+	    script c_t when c_t != 0 {
+		int i;
+		if (c_t < p_t ) {
+		    int tmp_ind;
+//		    printf("samplerCount [%d] - ind [%d] - 1 = [%d] -> samplerCount[%d] - 1 = [%d]\n",
+// 			   sampler.sampleCount, ind, sampler.sampleCount - ind - 1,
+// 			   sampler.sampleCount, sampler.sampleCount - 1);
+
+		    foreach i in [ ind : 1: -1 ] {
+//  			printf("- BEFORE pt[%u] ct[%u] nt[%u] NewInd[%d/%d]. sampleCount[%d] size[%d]\n",
+//  			       p_t,
+//  			       c_t,
+//  			       n_t,
+//  			       i, ind, sampler.sampleCount, size(sampler.values));
+
+			if  (c_t >= p_t) {
+			    //			    printf("- BRK\n");
+			    break;
+			}
+
+
+
+			n_t = p_t;
+			n_v = p_v;
+//		    c_v = p_v;
+			p_t = sampler.values[i-1].timeStamp;
+			p_v = sampler.values[i-1].value;
+//  			printf("- AFTER pt[%u] ct[%u] nt[%u] NewInd[%d]. sampleCount[%d] size[%d]\n",
+//  			       p_t,
+//  			       c_t,
+//  			       n_t,
+//  			       i, sampler.sampleCount, size(sampler.values));
+			
+		    }
+
+		    ind = i;
+
+// 		    if (ind == 0) {
+// 			printf("Tried to move to before start of time c_t[%d] p_t[%d]\n",
+// 			       c_t, p_t);
+// 			break;
+// 		    }
+		} 
+		else {
+		    //
+		    // Move forward until we hit the right interval
+		    // 
+		    foreach i in [ind : sampler.sampleCount - 1] {
+
+			if  (c_t <= n_t) {
+			    //			    printf("+ BRK\n");
+			    break;
+			}
+
+//   			printf("+ BEFORE pt[%u] ct[%u] nt[%u] NewInd[%d]. sampleCount[%d] size[%d]\n",
+//    			       p_t,
+//    			       c_t,
+//    			       n_t,
+//   			       i, sampler.sampleCount, size(sampler.values));
+
+			p_t = n_t;
+			p_v = n_v;
+//		    c_v = n_v;
+			n_t = sampler.values[i+1].timeStamp;
+			n_v = sampler.values[i+1].value;
+//  			printf("+ AFTER pt[%u] ct[%u] nt[%u] NewInd[%d]. sampleCount[%d] size[%d]\n",
+//   			       p_t,
+//   			       c_t,
+//   			       n_t,
+//   			       i + 1, sampler.sampleCount, size(sampler.values));
+			
+		    }
+		    ind = i;
+		}
+	    }
+
+	    script c_v {
+		float v_d = n_v - p_v;
+		float t_d = n_t - p_t;
+		float ct_d = c_t - p_t;
+
+//    		printf("((n_v[%f] - p_v[%f])[%f] * (c_t[%d] - p_t[%d])[%f] / (n_t[%d] - p_t[%d])[%f] = [/%f]\n",
+// 		       n_v, p_v, v_d,
+//    		       c_t, p_t, ct_d,
+//    		       n_t, p_t, t_d,
+//   		       p_v + (v_d * (ct_d / t_d))
+//  		       );
+
+		
+		
+		// Bug workaround: cur_val.value = cv gives NAN.
+		cur_val.value = p_v + (v_d * (ct_d / t_d));
+//		cur_val.value =  p_v + ((n_v - p_v) * (@float(c_t - p_t)) / (@float(n_t - p_t))); 
+
+		// Center text
+// 		if (org_left == -0.1)
+// 		    org_left = cur_val.left;
+
+// 		cur_val.left = org_left - cur_val.contentWidth / 2;
+	    }
+
+	    // Constructor
+	    script Interval {
+		if (sampler == nil) {
+		    printf("Interval: No samples object tied to instance.\n");
+		    break;
+		}
+
+		if (sampler.sampleCount < 2) {
+		    printf("Interval: Only %d samples available. Meed 2 or more.\n", sampler.sampleCount);
+		    break;
+		}
+
+		p_t = sampler.values[0].timeStamp;
+		n_t = sampler.values[1].timeStamp;
+
+		p_v = sampler.values[0].value;
+		n_v = sampler.values[1].value;
+
+		*c_v = sampler.values[0].value;
+		ind = 1;
+	    }
+	};
+
+	event float log_duration = 0.0; // Span of log file, in seconds.
+	event float start_pos = 300.0; // Leftmost position of scroll layer
+	event float stop_pos <- (start_pos - (log_duration / 10.0)); // rightmost position of scroll layer
+	event Message scroll_msg;
+	bool scroll_drag = false;
+	float scroll_x = 0.0;      // Last drag x position
+	time  scroll_t = 0.0;      // Last drag x time
+	float scroll_dx = 0.0;     // Last drag delta
+	float scroll_dt = 0.0;     // Last drag time delta
+	int plot_separation = 60; // Nr of pixels between the top of each plot graph
+
+	LogReader log = @LogReader { fileName = lastLogFile.value };
+
+	// Labels at the left.
+	Layer labels = @Layer { top = 0, left = 0}; 
+	// Contains timeline and plots, will be scrolled.
+	Layer scroll = @Layer { left = start_pos,
+				wantFocus = true,
+				messageMask = @Message.message_mask_button  };
+
+	Shape timeLine = @Shape { 
+	    top = 0, // border around graphs
+	    left = start_pos,
+	    shape = rectangle,
+	    fill = false,
+	    borderColor = 0xAAAAAA,
+	    transparency = 0.4,
+	    borderWidth = 1,
+	    contentWidth = 1
+	};
+	
+	Text current_time = @Text {
+	    fontName = .GUI.systemFont,
+	    fontSize = 18,
+	    glyphFixedWidth = 16,
+	    glyphDotKerning = -4,
+//	    fontSlant = roman,
+	    fontWeight = medium,
+	    fontColor = 0xCCCCCC,
+	    transparency = 0.0,
+	    left = start_pos, // top and text set further below.
+	    text = "0.0",
+	    transparency = 1.0
+	};
+
+	Text waitMsg = @Text {
+	    fontName = .GUI.systemFont,
+	    fontSize = 24,
+//	    fontSlant = roman,
+	    fontWeight = medium,
+	    fontColor = 0xCCCCCC,
+	    transparency = 0.0,
+	    top = 150, // top and text set further below.
+	    left = 70, // top and text set further below.
+	    text = "loading log file. please wait..."
+	};
+
+	Layer cur_val_txt[] = { }; // Will contain current values.
+	Interval cur_val[] = { }; // Will contain current values.
+	
+
+        // The layer clipping the scroll layer.
+	Layer clipping = @Layer { 
+	    top = 00, 
+	    left = 0,  
+  	    width = 570,
+	    children = { 
+		scroll, 
+		timeLine, 
+		current_time 
+	    },
+	    wantFocus = true,
+	    messageMask = @Message.message_mask_button | @Message.message_mask_motion
+	}; 
+
+ 	:GUI:Button prev = :GUI:Button { ddsFile = "dds/OS-Symbol-FastRewind.dds", top = 320, left =  180};
+ 	:GUI:Button stop = :GUI:Button { ddsFile = "dds/OS-Symbol-Stop.dds", top = 320, left = 255 };
+ 	:GUI:Button next = :GUI:Button { ddsFile = "dds/OS-Symbol-FastForward.dds", top = 320, left = 330 };
+ 	event bool prev_clicked <- prev.clicked;
+ 	event bool next_clicked <- next.clicked;
+ 	event bool stop_clicked <- stop.clicked;
+	event int log_state <- log.state;
+	event bool replay;
+	event float scroll_speed = 0;
+	event bool scroll_complete; 
+	event time time_line_tick;
+
+	script transparency when show == false && state == 4 && transparency == 1.0  && manager != nil {
+	    Interval tmp_i;
+	    Layer tmp_l;
+	    int i = 0;
+
+	    //	    printf("ReplayDialog: Cleanup\n");
+
+	    prev_clicked <- nil;
+	    next_clicked <- nil;
+	    stop_clicked <- nil;
+
+	    log_state <- nil;
+	    replay  <- nil;
+	    scroll_speed <- nil;
+	    scroll_complete <- nil;
+	    time_line_tick <- nil;
+	    time_line_tick = false;
+	    clipping.children = {};
+	    clipping = nil;
+	    cur_val_txt = nil;
+
+	    
+ 	    foreach i in [0 : size(log.channels) - 1] {
+		log.channels[i].sampler = nil;
+ 	    }
+
+	    //	    printf("cur_val [%d]\n", size(cur_val));
+	    foreach tmp_i in cur_val {
+		tmp_i.c_v <- nil;
+		tmp_i.c_t <- nil;
+		tmp_i.c_t = 0;
+		tmp_i.sampler = nil;
+	    }
+	    cur_val = nil;
+
+	    //	    printf("labels [%d]\n", size(labels.children));
+	    foreach tmp_l in labels.children {
+		tmp_l.top <- nil;
+		tmp_l.left <- nil;
+		tmp_l.height <- nil;
+		tmp_l.width <- nil;
+		tmp_l.contentHeight <- nil;
+		tmp_l.contentWidth <- nil;
+	    }
+
+// 	    printf("cur_val_txt [%d]\n", size(cur_val_txt));
+// 	    foreach tmp_l in cur_val_txt.children {
+// 		tmp_l.top <- nil;
+// 		tmp_l.left <- nil;
+// 		tmp_l.height <- nil;
+// 		tmp_l.width <- nil;
+// 		tmp_l.contentHeight <- nil;
+// 		tmp_l.contentWidth <- nil;
+// 	    }
+	    labels.children = {};
+	    labels = nil;
+	    done.top <- nil;
+	    done.left <- nil;
+	    done = nil;
+	    doneBackground.top <- nil;
+	    doneBackground.left <- nil;
+	    doneBackground = nil;
+	    done_clicked <- nil;
+	    waitMsg = nil;
+	    current_time = nil;
+	    timeLine = nil;
+	    
+	    scroll.left <- nil;
+	    scroll.children = {};
+	    scroll = nil;
+	    log.channels = {};
+	    log = nil;
+	    log_duration <- nil;
+	    start_pos <- nil;
+	    stop_pos <- nil;
+	    show <- nil;
+	}
+
+	script scroll_msg {
+	    if ((scroll_msg.name == buttonDown) && (scroll_msg.value == 1)) {
+		scroll.messageMask |= @Message.message_mask_motion;
+		scroll_speed = 0.0;
+		scroll.left <- nil;
+		stop_clicked = false;
+		scroll_drag = true;
+		scroll_x    = scroll_msg.x;
+		scroll_t    = scroll_msg.timeStamp;
+		scroll_dx   = 0.0;
+		scroll_dt   = 0;
+		time_line_tick <- abs(scroll.left);
+	    }
+	    else if ((scroll_msg.name == buttonUp) && (scroll_msg.value == 1)) {
+		scroll.messageMask &= ~@Message.message_mask_motion;
+		scroll_drag = false;
+		if (scroll_dt > 0) {
+		    float drop_speed = (scroll_dx / scroll_dt)*1000;
+		    // printf("speed = %f pix/s\n", drop_speed);
+		    if (abs(drop_speed) > 50) {
+			ScalarInterpolator scroller = @ScalarInterpolator {};
+			Timer timer = @Timer { autoDisconnect = true };
+	    
+			scroll_speed = -(drop_speed / 100);
+			scroller.key = { 0.0, 1.0 };
+			if (scroll_speed < 0.0) { // Move toward start position or stop position
+			    scroller.keyValue = { scroll.left, start_pos };
+			    timer.cycleInterval = ( start_pos - scroll.left ) / (100 * abs(scroll_speed)) ;
+			}
+			else {
+			    timer.cycleInterval = ( scroll.left - stop_pos ) / (100 * scroll_speed);
+			    scroller.keyValue = { scroll.left, stop_pos };
+			}
+			scroller.value = scroll.left;
+			scroller.fraction <- timer.fraction;
+			timer.active = true;
+			scroll_complete <- timer.active;
+			time_line_tick <- timer.tick;
+			scroll.left <- scroller.value;
+		    }
+		}
+	    }
+	    else if ((scroll_msg.name == motion) && scroll_drag) {
+		float dx = scroll_msg.x - scroll_x;
+		float x  = scroll.left + dx;
+		// adjust the value in x axis
+		if ((x <= start_pos) && (x >= stop_pos)) {
+		    scroll.left = x;
+		    scroll_dx = dx;
+		    scroll_dt = scroll_msg.timeStamp - scroll_t;
+		    scroll_x = scroll_msg.x;
+		    scroll_t = scroll_msg.timeStamp;
+		}
+	    }
+	}
+	//
+	// Scroll backward or forward
+	//
+	script prev_clicked || next_clicked when prev_clicked || next_clicked {
+	    ScalarInterpolator scroller = @ScalarInterpolator {};
+	    Timer timer = @Timer { autoDisconnect = true };
+
+	    if (prev_clicked)
+		scroll_speed = scroll_speed - 0.5; // How many log-seconds to traverse per second.
+	    else
+		scroll_speed = scroll_speed + 0.5; // Nr pixels per second
+	    
+	    //
+	    // Time to stop scroll?
+	    //
+	    if (scroll_speed == 0.0 || 
+		(prev_clicked && scroll.left == start_pos) ||
+		(next_clicked && scroll.left == stop_pos)) {
+// 		printf("full stop Scroll_speed[%f], scroll.left[%f] prev_clicked[%d] start_pos[%f] next_clicked[%d] stop_pos[%f]\n",
+// 		       scroll_speed, scroll.left, prev_clicked, start_pos, next_clicked, stop_pos);
+		next_clicked = false;
+		prev_clicked = false;
+		scroll_complete <- @:GUI:BoolTrigger { t = false }.t;
+		break;
+	    }
+
+	    next_clicked = false;
+	    prev_clicked = false;
+
+
+	    scroller.key = { 0.0, 1.0 };
+	    if (scroll_speed < 0.0) { // Move toward start position or stop position
+		scroller.keyValue = { scroll.left, start_pos };
+		timer.cycleInterval = ( start_pos - scroll.left ) / (100 * abs(scroll_speed)) ;
+
+// 		printf("<< from[%f] to[%f] in [%f] seconds\n", 
+// 		       scroll.left, start_pos, ( start_pos - scroll.left ) / 100 * abs(scroll_speed));
+	    }
+	    else {
+		timer.cycleInterval = ( scroll.left - stop_pos ) / (100 * scroll_speed);
+		scroller.keyValue = { scroll.left, stop_pos };
+
+// 		printf(">> from[%f] to[%f] in [%f] seconds\n", 
+// 		       scroll.left, stop_pos, ( scroll.left - stop_pos ) / 100 * scroll_speed);
+	    }
+	    scroller.value = scroll.left;
+	    scroller.fraction <- timer.fraction;
+	    timer.active = true;
+	    scroll_complete <- timer.active;
+	    time_line_tick <- timer.tick;
+	    scroll.left <- scroller.value;
+	}
+
+	
+	//
+	// Update various values.
+	//
+	script time_line_tick when time_line_tick {
+	    int i;
+	    int logChanCount = size(log.channels);
+	    current_time.text = sprintf("%.2f", abs(scroll.left - start_pos) / 100.0) ;
+	    current_time.left = start_pos - (current_time.contentWidth / 2);
+
+	    //
+	    // Updateinterval objects
+	    //
+//  	    foreach i in [0 : logChanCount - 1] {
+// 		cur_val[i].c_t = abs(scroll.left - start_pos) * 10;
+// 	    }
+	}
+
+	script scroll_complete || stop_clicked when ! scroll_complete || stop_clicked {
+//	    printf("Scroll complete [%d]\n", scroll_complete);
+	    scroll_speed = 0.0;
+	    scroll.left <- nil;
+	    stop_clicked = false;
+	}
+
+	//
+	// Start the replay dialog 
+	//
+	script replay when replay {
+	    //	    printf("Got data log replay\n");
+	    log.state = 1; // Trigger log header reading and channel setup.
+	}
+
+	
+	script state when state == 1 {
+	}
+
+	script done_clicked when done_clicked && transparency != 1 {
+	    *show = false;
+	    *confirmed = true;
+	}
+
+	//
+	// Log has been read and is ready for displayment.
+	//
+	script log_state when log_state == 4 {
+ 	    int i;
+	    int ind;
+	    int logChanCount = size(log.channels);
+	    int count;
+
+	    //	    printf("Logstate = 4. Done\n");
+	    waitMsg.transparency = 1.0;
+	    current_time.transparency = 0.0;
+	    //
+	    // Setup a clipping region.
+	    //
+  	    clipping.height = logChanCount * plot_separation + 40;
+  	    clipping.clip = true;
+	    timeLine.contentHeight = logChanCount * plot_separation + 10;
+
+	    //
+	    // Find max time span
+	    //
+	    log_duration = 0.0;
+ 	    foreach i in [0 :logChanCount - 1] {
+		float tmp;
+
+		if (log.channels[i].sampler.sampleCount > 0) {
+		    tmp = log.channels[i].sampler.values[log.channels[i].sampler.sampleCount - 1].timeStamp;
+		    if (tmp > log_duration)
+			log_duration = tmp;
+		}
+	    }
+//	    printf("log_duration[%f]\n", log_duration);
+
+	    //
+	    // Setup the plot area for all channels and the labels.
+	    //
+ 	    foreach i in [0 :logChanCount - 1] {
+		Text tmp;
+		int lab_ind = size(labels.children);
+		ind = log.channels[i].sampler.sampleCount - 1;
+
+		//
+		// Background behind plot area
+		//
+		labels.children[lab_ind++] = @Shape {
+		    shape = rectangle,
+		    fill = true,
+		    borderWidth = 0,
+		    top = i * plot_separation + 2,
+		    left = 0,
+		    contentHeight = 45,
+		    contentWidth = clipping.width,
+		    fillColor = 0x000000,
+		    transparency = 0.7
+		};
+		    
+
+  		scroll.children[i] = @Plot { 
+  		    top = i * plot_separation + 2, 
+  		    left = 0, 
+  		    contentWidth = log_duration/10, // 10 msec/pixel
+ 		    contentHeight = 45,
+//		    background = true,
+//		    backgroundColor=0xA0AA0A0,
+		    // Get las tTS
+		    plotTime = log_duration / 1000000.0,
+		    plotType = line,
+		    color = 0xCCCCCC,
+  		    samples = log.channels[i].sampler
+  		};
+
+		log.channels[i].sampler.index = 0;
+
+		// Label name
+// 		labels.children[lab_ind++] = @Text {
+ 		tmp = @Text {
+  		    fontName = .GUI.systemFont,
+  		    fontSize = .GUI.logLabelFontSize,
+//  		    fontSlant = roman,
+  		    fontWeight = medium,
+  		    fontColor = 0xCCCCCC,
+  		    transparency = 0.0,
+  		    left = 0,
+  		    top = i * plot_separation,
+  		    text = log.channels[i].name
+  		}; 
+
+		// Background behind label type.
+		labels.children[lab_ind++] = @Shape { 
+		    shape = rectangle,
+		    fill = true,
+		    borderWidth = 0,
+		    top <- tmp.top,
+		    left <- tmp.left, 
+		    contentHeight <- tmp.contentHeight, 
+		    contentWidth <- tmp.contentWidth,
+		    fillColor = 0x000000,
+		    transparency = 0.6
+		};
+ 		labels.children[lab_ind++] = tmp;
+
+		// Label unit type
+		if (log.channels[i].unitType != "") {
+		    tmp = @Text {
+			fontName = .GUI.systemFont,
+			fontSize = .GUI.logLabelFontSize,
+//  		    fontSlant = roman,
+			fontWeight = medium,
+			fontColor = 0xCCCCCC,
+			transparency = 0.0,
+			left = 0,
+			top = i * plot_separation + tmp.contentHeight - 5,
+			text = log.channels[i].unitType
+		    }; 
+		    // Background behind label unit type.
+		    labels.children[lab_ind++] = @Shape { 
+			shape = rectangle,
+			fill = true,
+			borderWidth = 0,
+			top <- tmp.top,
+			left <- tmp.left, 
+			contentHeight <- tmp.contentHeight, 
+			contentWidth <- tmp.contentWidth,
+			fillColor = 0x000000,
+			transparency = 0.6
+		    };
+		    labels.children[lab_ind++] = tmp;
+		} else
+		    tmp.top += 15;
+
+// 		// Max value
+// 		labels.children[lab_ind++] = @Text {
+//   		    fontName = .GUI.systemFont,
+//   		    fontSize = .GUI.logDigitFontSize,
+//   		    fontWeight = medium,
+//   		    fontColor = 0xFFFFFF,
+//   		    transparency = 0.0,
+//   		    left = 105,
+//   		    top = i * plot_separation ,
+//   		    text = sprintf("%.2f", log.channels[i].sampler.maxValue)
+// 		};
+
+// 		// Min value
+// 		labels.children[lab_ind++] = @Text {
+//   		    fontName = .GUI.systemFont,
+//   		    fontSize = .GUI.logDigitFontSize,
+//   		    fontWeight = medium,
+//   		    fontColor = 0xFFFFFF,
+//   		    transparency = 0.0,
+//   		    left = 105,
+//   		    top = i * plot_separation + 34,
+//   		    text = sprintf("%.2f", log.channels[i].sampler.minValue)
+// 		};
+
+		//
+		// Setup the current value label for each channel.
+		//
+		cur_val_txt[i] = @Float {
+  		    fontName = .GUI.systemFont,
+  		    fontSize = 20,
+//		    fontSlant = roman,
+		    fontWeight = medium,
+		    fontColor = 0xCCCCCC,
+		    format = "%.2f",
+		    transparency = 0.0,
+		    top = i * plot_separation + 12, // was 47
+		    //		    left = start_pos + clipping.left,
+		    left = start_pos + clipping.left,
+		    value = 0.0
+		};
+		
+		// Background behind label.
+		labels.children[lab_ind++] = @Shape { 
+		    shape = rectangle,
+		    fill = true,
+		    borderWidth = 0,
+		    top <- cur_val_txt[i].top,
+		    left <- cur_val_txt[i].left, 
+		    contentHeight <- cur_val_txt[i].contentHeight, 
+		    contentWidth <- cur_val_txt[i].contentWidth,
+		    fillColor = 0x000000,
+		    transparency = 0.6
+		};
+
+		//		cur_val_txt[i].left <- start_pos + clipping.left - cur_val_txt[i].contentWidth  / 2; // Centered
+
+		cur_val_txt[i].left <- clipping.left + clipping.width - cur_val_txt[i].contentWidth; // Right hand adjust
+		// Install as a non moving label.
+		labels.children[lab_ind++] = cur_val_txt[i];
+
+
+		//
+		// Setup an interval object
+		//
+		cur_val[i] = @Interval {
+		    sampler = log.channels[i].sampler,
+		    cur_val = @Float(cur_val_txt[i])
+		};
+		cur_val[i].c_t <- 0 - (scroll.left - start_pos) * 10; // Current time in msec.
+ 	    }
+
+	    ind = size(scroll.children);
+
+	    //
+	    // Add time stamp labels every second / 100 pixels
+	    //
+	    count = log_duration / 1000;
+ 	    foreach i in [ 0 : count ] {
+		scroll.children[ind] = @Text {
+  		    fontName = .GUI.systemFont,
+  		    fontSize = 18,
+//  		    fontSlant = roman,
+  		    fontWeight = medium,
+  		    fontColor = 0xCCCCCC,
+  		    transparency = 0.0,
+  		    left = i * 100 - 3,
+  		    top = logChanCount * plot_separation - 9,
+  		    text = sprintf("%d", i)
+		};
+		++ind;
+	    }
+
+	    //
+	    // Setup position of current_time
+	    //
+	    current_time.top = logChanCount * plot_separation + 11;
+	    current_time.left = start_pos - (current_time.contentWidth / 2);
+
+	    //
+	    // Setup buttons for scrolling
+	    //
+	    show <- @:GUI:BoolTrigger { t = true }.t;
+	}
+
+
+	script log_state when log_state == 0 && log.error != 0 {
+	    pane.children[0] = @Text {
+		fontName = .GUI.systemFont,
+		fontSize = 32,
+		fontWeight = medium,
+		fontColor = 0xCCCCCC,
+		transparency = 0.0,
+		left = 0,
+		top = 0,
+		width <- pane.width,
+		height <- pane.height,
+		halign = center,
+		valign = center,
+		text = "no log data available"
+	    }; 
+
+	    pane.children[1] = nil;
+	    pane.children[2] = nil;
+	    pane.children[3] = nil;
+	    pane.children[4] = nil;
+	    waitMsg.transparency = 1.0; // Blank out wait message.
+	}
+
+	script log_state when log_state == 2 {
+	    // Trigger show of self.
+ 	    int i;
+    
+	    if (size(log.channels) == 0) 
+	        printf("NO LOG CHANNELS!\n");
+
+	    //
+	    // Setup samplers to be filled with log data
+	    //
+ 	    foreach i in [ 0 : size(log.channels) - 1] {
+		log.channels[i].sampler = @SamplerBase {};
+ 	    }
+
+	    //
+	    // Start log read.
+	    //
+ 	    log.state = 3;
+	}
+
+	script confirmed when confirmed {
+	    *show = false;
+	    log.state = 0;
+	    scroll_speed = 0.0;
+	    
+	}
+
+	buttonShadow = @Layer { children = { done } };
+
+	pane  = @Layer { 
+	    children = { clipping, labels, prev, stop, next, waitMsg },
+	    wantFocus = true,
+	    messageMask = @Message.message_mask_button | @Message.message_mask_motion
+	};
+
+	scroll_msg <- clipping.message;
+	done.top <- bgDDS.top + bgDDS.topOffset + bgDDS.bgHeight - 25;
+	done.left <-bgDDS.left + bgDDS.leftOffset + bgDDS.bgWidth - done.contentWidth - 30;
+	buttons.children[size(buttons.children)] = doneBackground;
+	buttons.children[size(buttons.children)] = done;
+	buttonShadow.children[size(buttonShadow.children)] =  done ;
+	
+	wantFocus = true;
+    };
+
+
+    //
+    // Screen layer blocking out the underlying skin while logging is active
+    //
+    type LogLayer: Layer {
+	Image logMsg = Image { imageFile = "dds/rec.png" };
+	event int logError <- logWriteError;
+	Text launchMsg = Text {
+	    fontName = .GUI.systemFont,
+	    fontSize = .GUI.announceFontSize,
+//	    fontSlant = roman,
+	    fontWeight = medium,
+	    fontColor = 0xFFFFFF,
+	    transparency = 1.0,
+	    left = 0,
+	    top = 230,
+	    width = .ScreenLib.realXRes,
+	    halign = center,
+	    text = "Tap screen to stop logging"
+	}; 
+
+	Text finalMsg = Text {
+	    fontName = .GUI.systemFont,
+	    fontSize = .GUI.announceFontSize,
+//	    fontSlant = roman,
+	    fontWeight = medium,
+	    fontColor = 0xFFFFFF,
+	    transparency = 1.0,
+	    left = 0,
+	    top = 230,
+	    width = .ScreenLib.realXRes,
+	    halign = center,
+	    text = "Logging stopped."
+	}; 
+	event bool logActive = false;
+
+	//
+	// Check if we are activated from outside.
+	//
+	script logActive when logActive {
+	    int ind;
+	    //	    printf("LogLayer:logActive()\n");
+	    transparency <- nil;
+	    transparency = 0.0;
+	    top = 0;
+	    left = 0;
+	    height = .ScreenLib.realYRes;
+	    width = .ScreenLib.realXRes;
+	    logMsg.top = height - logMsg.contentHeight - 10;
+	    logMsg.left = (.ScreenLib.realXRes - .ScreenLib.xRes) / 2 + .ScreenLib.xRes - logMsg.contentWidth - 10;
+
+	    finalMsg.transparency = 1.0;
+	    launchMsg.left = 0;
+	    launchMsg.top = 230;
+	    //	    launchMsg.width = .ScreenLib.xRes;
+ 	    launchMsg.transparency <- @Timer { cycleInterval = 4.0 }.fraction;
+									   
+  	    logMsg.transparency <- @ScalarInterpolator { 
+  		key = { 0.0, 0.5, 1.0 }, 
+		    keyValue = {1.0, 0.4, 1.0 },
+ 		value = 1.0,
+  		fraction <- @Timer { cycleInterval = 2.0, loop = true }.fraction
+  	    }.value;
+
+	    wantFocus = true; // Grab the input events.
+	    exclusiveFocus = true; // Grab the input events.
+	    //
+	    // Go through all channels and force an initial value
+	    //
+	    foreach ind in [ 0 : .EC.count - 1 ] {
+		if (.EngineBaseLib.engine.channels[ind].usage > 0) {
+		    //		    printf("Forcing [%s] to [%f]\n", .EC.desc[ind].name, .EngineBaseLib.engine.channels[ind].value);
+		    *.EngineBaseLib.engine.logWriter.channels[ind].value = .EngineBaseLib.engine.channels[ind].value;
+		}
+	    }
+	}
+
+	//
+	// Check if log layer is clicked, this deactivating it.
+	//
+	script message || logError when ((message != nil) &&
+					 (message.name == buttonDown) && 
+					 (message.value == 1)) || logError == 1 {
+	    //	    printf("Log layer clicked logError[%d] message[%p].\n", logError, message);
+	    if (logError == 1) {
+  	        finalMsg.text = "please insert usb memory stick";
+		logMsg.transparency = 1.0;
+		logMsg.transparency <- nil;
+	    }
+	    else  {
+  	        finalMsg.text = "logging completed";
+		logMsg.transparency <- @Timer { cycleInterval = 0.3 }.fraction;
+	    }
+
+	    message = nil;
+
+	    launchMsg.transparency <- nil;
+	    launchMsg.transparency = 1.0;
+	    finalMsg.left = 0;
+	    finalMsg.top = 230;
+	    //	    finalMsg.width = .ScreenLib.xRes;
+	    finalMsg.transparency = 0.0;
+	    transparency <- @Timer { cycleInterval = 4.0 }.fraction;
+	    logActive <- @:GUI:BoolTrigger { t = false }.t;
+	    wantFocus = false;
+	}
+
+	children[0] = logMsg;
+	children[1] = launchMsg;
+	children[2] = finalMsg;
+	transparency = 1.0;
+	messageMask = @Message.message_mask_button;
+	wantFocus = false;
+	width <- .ScreenLib.realXRes;
+	height <- .ScreenLib.realYRes;
+// 	top <- (.ScreenLib.realYRes - .ScreenLib.yRes) / 2;
+// 	left <- (.ScreenLib.realXRes - .ScreenLib.xRes) / 2;
+    };
+
+    LogLayer logLayer = @LogLayer { }; 
+
+    script Core {
+	currentSkin = @Psigned { key = "core.currentSkin", value = -1 };
+	cursor = @:GUI:Cursor {	imageFile = "dds/Arrow-48x48.png" };
+
+	.ScreenLib.screen.children[size(.ScreenLib.screen.children)] = nil; // Reserved for skin manager in skinbase.m1
+	.ScreenLib.screen.children[size(.ScreenLib.screen.children)] = .GUI.dialogManager;
+	.ScreenLib.screen.children[size(.ScreenLib.screen.children)] = logLayer;
+	.ScreenLib.screen.children[size(.ScreenLib.screen.children)] = touchscreenCalibration;
+	.ScreenLib.screen.children[size(.ScreenLib.screen.children)] = resetScreenResolution;
+	.ScreenLib.screen.children[size(.ScreenLib.screen.children)] = cursor;
+    }
+}
+
+

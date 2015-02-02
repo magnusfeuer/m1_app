@@ -1,0 +1,1429 @@
+// -*- c++ -*-
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007, 2008.
+//
+
+library EngineBaseLib {
+    //
+    //
+    // EngineBase
+    // This normailzed engine  interface defines all data points supplied by all engines.
+    // Engine subclasses will instansiate a device driver (such as an OBD-II reading driver)
+    // and connect its out-datga to the variables in Engine.
+    //
+
+    //
+    // Damper. 
+    //
+    // Dampens the input value, which can fluctuate and let's the output value
+    // wander with toward the target. Used to smooth the movement of gauges.
+    //
+    // inValue -  The value that the damper should strive toward.
+    //
+    // outValue - The dampened outvalue, will always end up equal
+    //            to invalue.
+    //
+    // hz -       The frequency at which outValue should be updated.
+    //
+    // interval - How long, in seconds, outValue should take to reach 
+    //            inValue.
+    //
+    type Damper {
+	// inValue
+	// Set this value to start the Damper.
+        public bool enabled = false;
+        public event float inValue = 0;
+        public event float interval = 0.4; 
+        public event float hz = 25.0;
+	event int currentStep = 0;
+	Timer timer = @Timer { cycleInterval = interval, enabled = false };
+	event bool complete <- timer.active;
+
+	//
+	// Used to get a 1/x effect as outValue moves closer to inValue
+	//
+	ScalarInterpolator interpol = @ScalarInterpolator { fraction <- timer.fraction };
+        public event float outValue <- interpol.value;
+
+	script interval  {
+	    timer.cycleInterval = interval;
+	}
+
+	script inValue when inValue != outValue  {
+	    float divider;
+	    int i;
+	    float val = outValue;
+	    int steps = 0;
+
+	    //
+	    // Setup the scalar interpolator with an appropriate number of steps.
+	    // Setup one point every 5:th update.
+	    //
+	    steps = (interval * hz);
+	    divider = steps / 5;
+	    currentStep = 0;
+
+	    interpol.key = {};
+	    interpol.keyValue = {};
+	    foreach i in [0 : steps] { 
+		float tmp = i; // Bug30.m1
+		interpol.key[i] = tmp/steps;
+		val = val + (inValue - val) / divider;
+		interpol.keyValue[i] = val;
+	    }		
+	    timer.enabled = true;
+	    timer.startTime = 0.0;
+	    interpol.fraction <- timer.fraction;
+	    outValue <- interpol.value;
+	}
+
+	// 
+	// Timer has expired, set final value
+	//
+	script complete when !complete  {
+	    outValue = inValue;
+	}
+    };
+
+
+    // DB stored min value for a channel
+    type MinValue {
+	Pfloat valueDB;
+	event float value;
+	event float minValue; // Value used while waiting to flush.
+	event bool reset;
+	event bool store;
+	int channel;
+
+	script reset when reset {
+//	    printf("Reset min value for [%s]\n", .EC.desc[channel].shortName);
+	    reset = false;
+	    valueDB.value = 9999999.0;
+	    minValue = valueDB.value;
+	}
+
+	script value when value < minValue {
+//	    printf("New min value for [%s]: [%f]\n", .EC.desc[channel].shortName, value);
+	    minValue = value;
+	}
+
+	script store when store {
+	    store = false;
+//	    printf("Storing min value for [%s]: [%f]\n", .EC.desc[channel].shortName, value);
+	    valueDB.value = minValue;
+	}
+
+	script MinValue {
+	    valueDB = @Pfloat { key = sprintf("engine.minValue.%d", channel), value = 9999999.0 };
+	    minValue = valueDB.value;
+//	    printf("Loaded min value for [%s]: [%f] key[%s]\n", .EC.desc[channel].shortName, valueDB.value, valueDB.key);
+	}
+    };
+
+    // DB stored max value for a channel.
+    type MaxValue {
+	Pfloat valueDB;
+	event float value;
+	event float maxValue; // Value used while waiting to flush.
+	event bool reset;
+	event bool store;
+	int channel;
+
+	script reset when reset {
+//	    printf("Reset max value for [%s]\n", .EC.desc[channel].shortName);
+	    reset = false;
+	    valueDB.value = -9999999.0;
+	    maxValue = valueDB.value;
+	}
+
+	script value when value > maxValue {
+//	    printf("New max value for [%s]: [%f]\n", .EC.desc[channel].shortName, value);
+	    maxValue = value;
+	}
+
+	script store when store {
+	    store = false;
+//	    printf("Storing max value for [%s]: [%f]\n", .EC.desc[channel].shortName, value);
+	    valueDB.value = maxValue;
+	}
+
+	script MaxValue {
+	    valueDB = @Pfloat { key = sprintf("engine.maxValue.%d", channel), value = -9999999.0 };
+	    maxValue = valueDB.value;
+//	    printf("Loaded max value for [%s]: [%f] key[%s]\n", .EC.desc[channel].shortName, valueDB.value, valueDB.key);
+	}
+    };
+    
+
+    // VehicleProfileBase
+    //  This class defines the template of all vehicle profiles.
+    //
+    type VehicleProfile {
+	type ChannelProfile {
+	    event float min = 0;   // Min be installed in 
+	    event float max = 0;   // Max value that the gauge can show.
+	    event float minWarn = 0; // negeative yellow zone
+	    event float maxWarn = 0; // Positive yellow zone
+	    event float minCritical = 0; // Negative red zone
+	    event float maxCritical = 0; // Positive red zone
+	    event ScalarInterpolator normal = ScalarInterpolator { 
+		key = { 0.0, 0.0 }, 
+		keyValue = { 0.0, 1.0 }
+	    };
+	    
+	    //
+	    // Patch the scalar interpolator.
+	    //
+	    script min when min != max && normal != nil {
+		normal.key[0] = min;
+	    }
+
+	    script max when min != max && normal != nil {
+		normal.key[size(normal.key) -1 ] = max;
+	    }
+
+	    //
+	    // Update keys of scalar interpolator when set.
+	    //
+	    script normal when normal != nil {
+		normal.key[0] = min;
+		normal.key[size(normal.key) - 1] = max;
+	    }
+	    
+	    //
+	    // Setup default scalar if 
+	    // not specified by list constructor.
+	    //
+	    normal.key[0] = min;
+	    normal.key[size(normal.key) - 1] = max;
+	    normal.value = normal.keyValue[0];
+	    minWarn = min;
+	    maxWarn = max;
+	    minCritical = min;
+	    maxCritical = max;
+	};
+
+	// Information about make and model
+
+        string make = "";    // Make (Ford)
+	string model = "";   // Model (Mustang GT)
+	int startYear = 0;  // First model year for this profile (2002)
+	int stopYear = 0;   // Last model year for this proifile (2005)
+	string imageFile = "";
+	
+	//
+        // The RPM/KPH gaar ratios.
+	// Element 0 is for first gear, element 1 is for second gear etc.
+	// Reverse is not included.
+	//
+	// See size of gearRatios for number of gears available.
+	//
+        public float gearRatios[] = {};
+        public float gearInterval[] = {	};
+	public int gearCount = 0;
+
+	//
+	// type of gearbox
+	// 0 - Unknown.
+	// 1 - Manual
+	// 2 - Automatic
+	// 3 - Tiptronic
+	// 4 - Semi-manual (manual with computer controlled clutch)
+	// 5 - Sequential
+	// 6 - Continously variable
+	// 
+	int gearType = 0;
+	string gearTypeLabel[] = {
+	    "unknown", "manual", "auto", "tiptronic", "semi-manual", "sequential", "cvt" 
+	};
+
+        int curbWeight = 0;                             // Curb weight in kg. 50% fuel + driver.
+	int length = 0;                                 // Length in cm
+	int width = 0;                                  // Width in cm
+	int height = 0;                                 // Height in cm
+	int wheelBase = 0;                              // Wheel base in cm.
+	int displacement = 0;                           // Engine Displacement in ccm.
+	int cylinders = 0;                             	// Number of cylinders
+	int tireWidth = 185;                            // Stock tire width in mm
+	int tireSidewallRatio = 75;                     // Stock tire sidewall raito.
+	int tireRimDiameter = 15;                       // Stock tire rim diameter
+
+	//
+	// Cylinder configuration
+	// 0 = Unknown.
+	// 1 = Inline (Straight)
+	// 2 = V
+	// 3 = Boxer
+	// 4 = W
+	// 5 = Wankel
+	// 6 = Radial
+	// 7 = Square
+	// 8 = H
+	// 9 = U
+	// 10 = Opposed
+	// 11 = X.
+	int cylinderConfig;                             
+	string cylinderConfigLabel[] = {
+	    "unknown", "straight", "V", "boxer", "W", "rotary", "radial", "square", "H", "U", "opposed", "X"
+	};
+
+	string cylinderConfigFormat[] = {
+	    "%s %d", "%s %d cyl", "%s%d", "%s %d", "%s%d", "%s", "%s %d cyl", "%s %d cyl", "%s%d", "%s%d", "%s %d cyl", "%s%d"
+	};
+
+	//
+	// OBD-II protocol used
+	//
+	// UNKNOWN = 0
+	// J1850_PWM = 1
+	// J1850_VPW = 2
+	// ISO_9141 = 3 
+	// ISO_14230 = 4 ( == KWP2000)
+	// CAN 11BIT 500K = 5
+	// CAN 29BIT 500K = 6
+	// CAN 11BIT 20K = 7
+	// CAN 29BIT 250K = 8
+	// Level 2 = 9
+	int obdIIProtocol = 0;
+
+	//
+	// Iso gap time.
+	// For apex this value can be between 1 to 5 ms.
+	// If not set, no specific ISO gap time command
+	// will be sent to the Apex unit, which will default
+	// to 5.
+	//
+	unsigned isoGapTime = 0; 
+	
+	string obdIIProtocolLabell[] = {
+	    "unknown", "J18150PWM", "J1850VPW", "ISO9141", "ISO14230", "CAN111B-500KB", "CAN129B-500KB", "CAN111B-250KB", "CAN129B-250KB", "level 2"
+	};
+
+	// More?
+	// NA/turbo/supercharger.
+	bool turbo;
+	bool superCharged;
+
+	ChannelProfile chanProf[] = { };
+
+
+	script VehicleProfile {
+	    chanProf[.EC.rpm] = @ChannelProfile { min = 0, max = 8500 } ; //  RPM
+	    chanProf[.EC.map_mbar] = @ChannelProfile { min = 200, max = 2400 }; // 1 - MAP mbar.
+
+	    chanProf[.EC.map_psi] = @ChannelProfile {  // MAP psi
+		min <- (chanProf[.EC.map_mbar].min * 0.0145037738), 
+		max <- (chanProf[.EC.map_mbar].max * 0.0145037738) 
+	    };
+
+	    chanProf[.EC.map_mbarcm] = @ChannelProfile { // MAP mbar/cm non linear
+		min = -63.5,
+		max = 2200,
+		normal = @ScalarInterpolator {
+		    key = { -63.5, 0.0, 2200 },
+		    keyValue = { 0, 0.5, 1}
+		}
+	    };
+
+	    chanProf[.EC.map_psiin] = @ChannelProfile { // MAP psi/in non linear
+		min = -25.0,
+		max =  25.0,
+		normal = @ScalarInterpolator {
+		    key = { -24, 0.0, 25 },
+		    keyValue = {0, 0.5, 1}
+		}
+	    };
+
+	    chanProf[.EC.kph] = @ChannelProfile { min = 0, max = 255 }; // KPH
+	    chanProf[.EC.mph] = @ChannelProfile { min <- chanProf[5].min, max <- (chanProf[5].max * 0.621371192)}; // MPH
+	
+	    chanProf[.EC.trim_1] = @ChannelProfile { min = -100, max = 100 }; // short trim 1
+	    chanProf[.EC.trim_2] = @ChannelProfile { min = -100, max = 100 }; // long trim 1
+
+	    chanProf[.EC.lam_1_1_l] = @ChannelProfile { min = 0.0, max = 2.0 };   // lambda bank 1 sensor 1 percent
+	    chanProf[.EC.lam_1_1_a] = @ChannelProfile { min = 0.0, max = 29.4 }; // lambda bank 1 sensor 1 volt
+	    chanProf[.EC.lam_1_1_v] = @ChannelProfile { min = 0.0, max = 5.0 }; // lambda bank 1 sensor 1 volt
+	    chanProf[.EC.lam_1_2_l] = @ChannelProfile { min = 0.0, max = 2.0 };   // lambda bank 1 sensor 2 percent
+	    chanProf[.EC.lam_1_2_a] = @ChannelProfile { min = 0.0, max = 29.4 }; // lambda bank 1 sensor 2 volt
+	    chanProf[.EC.lam_1_2_v] = @ChannelProfile { min = 0.0, max = 5.0 }; // lambda bank 1 sensor 2 volt
+	    chanProf[.EC.lam_2_1_l] = @ChannelProfile { min = 0.0, max = 2.0 };   // lambda bank 2 sensor 1 percent
+	    chanProf[.EC.lam_2_1_a] = @ChannelProfile { min = 0.0, max = 29.4 }; // lambda bank 2 sensor 1 volt
+	    chanProf[.EC.lam_2_1_v] = @ChannelProfile { min = 0.0, max = 5.0 }; // lambda bank 2 sensor 1 volt
+	    chanProf[.EC.lam_2_2_l] = @ChannelProfile { min = 0.0, max = 2.0 };   // lambda bank 2 sensor 2 percent
+	    chanProf[.EC.lam_2_2_a] = @ChannelProfile { min = 0.0, max = 29.4 }; // lambda bank 2 sensor 2 volt
+	    chanProf[.EC.lam_2_2_v] = @ChannelProfile { min = 0.0, max = 5.0 }; // lambda bank 2 sensor 2 volt
+
+
+	    chanProf[.EC.load] = @ChannelProfile { min = 0, max = 100 }; // Load, %
+
+	    chanProf[.EC.ect_c] = @ChannelProfile { min = 0, max = 120 }; // ECT C (Enginte Coolant Temp)
+	    chanProf[.EC.ect_f] = @ChannelProfile {  // ECT F
+		min <- (chanProf[.EC.ect_c].min * 1.8 + 32), 
+		max <- (chanProf[.EC.ect_c].max * 1.8 + 32) 
+	    };
+
+	    chanProf[.EC.iat_c] = @ChannelProfile { min = 10, max = 130 }; // IAT C (Intake Air temp)
+	    chanProf[.EC.iat_f] = @ChannelProfile {  // IAT F
+		min <- (chanProf[.EC.iat_c].min * 1.8 + 32), 
+		max <- (chanProf[.EC.iat_c].max * 1.8 + 32) 
+	    };
+
+	    chanProf[.EC.aat_c] = @ChannelProfile { min = -20, max = 50 }; // AAT C (Ambient Air)
+	    chanProf[.EC.aat_f] = @ChannelProfile {  // AAT F
+		min <- (chanProf[.EC.aat_c].min * 1.8 + 32), 
+		max <- (chanProf[.EC.aat_c].max * 1.8 + 32) 
+	    };
+
+	    chanProf[.EC.eot_c] = @ChannelProfile { min = 50, max = 150 }; // EOT C (Engine Oil Temp)
+	    chanProf[.EC.eot_f] = @ChannelProfile {  // EOT F
+		min <- (chanProf[.EC.eot_c].min * 1.8 + 32),  
+		max <- (chanProf[.EC.eot_c].max * 1.8 + 32) 
+	    };
+
+	    chanProf[.EC.vbat] = @ChannelProfile { min = 0, max = 20 }; // VBAT (Battery voltage)
+
+	    chanProf[.EC.ign_adv] = @ChannelProfile { min = -40, max = 40 }; // Ignition advance
+	    chanProf[.EC.ign_adv].normal.value = 0.5;
+
+	    chanProf[.EC.maf_g] = @ChannelProfile { min = 0, max = 300 }; //  MAF G (Mass Air Flow grams/sec)
+	    chanProf[.EC.maf_o] = @ChannelProfile { //  MAF O (oz/sec)
+		min <- (chanProf[.EC.maf_g].min * 0.0352739619), 
+		max <- (chanProf[.EC.maf_g].max * 0.0352739619) 
+	    }; 
+
+	    chanProf[.EC.atps] = @ChannelProfile { min = 0, max = 100 }; // TPS % Absolute value as read from ECU
+	    chanProf[.EC.rtps] = @ChannelProfile { min = 0, max = 100 }; // Normalized 0-100 value based on min/max values seen from ECU.
+	
+	    chanProf[.EC.fp_mbar] = @ChannelProfile { min = 0, max = 5000 }; //  FP mbar (Fuel Pressure)
+	    chanProf[.EC.fp_psi] = @ChannelProfile { //  FP psi
+		min <- (chanProf[.EC.fp_mbar].min * 0.0145037738),
+		max <- (chanProf[.EC.fp_mbar].max * 0.0145037738)
+	    }; 
+
+	    chanProf[.EC.fuel_lev] = @ChannelProfile { min = 0, max = 100 };  // Fuel level %
+	
+	    chanProf[.EC.bap_mbar] = @ChannelProfile { min = 950, max = 1050 }; // BAP mbar (Barometric Air Pressure)
+	    chanProf[.EC.bap_psi] = @ChannelProfile { //  BAP psi
+		min <- (chanProf[.EC.bap_mbar].min * 0.0145037738),
+		max <- (chanProf[.EC.bap_mbar].max * 0.0145037738)
+	    }; 
+
+	    chanProf[.EC.hp] = @ChannelProfile { min = 0, max = 300 }; // HP.
+	
+	    chanProf[.EC.torque_nm] = @ChannelProfile { min = 0, max = 270 }; // Torque nm
+	    chanProf[.EC.torque_lbft] = @ChannelProfile { //  Torque lbft
+		min = 0,
+		max = 270
+	    }; 
+
+	    chanProf[.EC.gear] = @ChannelProfile { min = 0, max = 6 }; // Gear.
+
+	    chanProf[.EC.lp100k] = @ChannelProfile { min = 0, max = 50 }; // litres per 100 km. (fuel consumption)
+	    chanProf[.EC.mpg] = @ChannelProfile { //  MPG miles per gallon
+		min <- 0,
+		max <- 70
+	    }; 
+
+	    chanProf[.EC.gforce] = @ChannelProfile { min = -500.0, max = 500.0 }; // gforce.
+	    chanProf[.EC.gforce].normal.value = 0.5;
+
+
+	    chanProf[.EC.eop_mbar] = @ChannelProfile { min = 0, max = 8200.0 }; // engine oil pressure
+	    chanProf[.EC.eop_mbar].normal.value = 0.5;
+	    chanProf[.EC.eop_psi] = @ChannelProfile { //  engine oil pressuse psi
+		min <- (chanProf[.EC.eop_mbar].min * 0.0145037738),
+		max <- (chanProf[.EC.eop_mbar].max * 0.0145037738)
+	    }; 
+
+	    chanProf[.EC.egt1_c] = @ChannelProfile { min = 0, max = 1200 } ; //  exhaust gas temp, c
+	    chanProf[.EC.egt1_f] = @ChannelProfile {  // exhaust gas temp, f
+		min <- (chanProf[.EC.egt1_c].min * 1.8 + 32),  
+		max <- (chanProf[.EC.egt1_c].max * 1.8 + 32) 
+	    };
+
+	    chanProf[.EC.egt2_c] = @ChannelProfile { min = 0, max = 1200 } ; //  exhaust gas temp, c
+	    chanProf[.EC.egt2_f] = @ChannelProfile {  // exhaust gas temp, f
+		min <- (chanProf[.EC.egt2_c].min * 1.8 + 32),  
+		max <- (chanProf[.EC.egt2_c].max * 1.8 + 32) 
+	    };
+
+	    chanProf[.EC.egt3_c] = @ChannelProfile { min = 0, max = 1200 } ; //  exhaust gas temp, c
+	    chanProf[.EC.egt3_f] = @ChannelProfile {  // exhaust gas temp, f
+		min <- (chanProf[.EC.egt3_c].min * 1.8 + 32),  
+		max <- (chanProf[.EC.egt3_c].max * 1.8 + 32) 
+	    };
+
+	    chanProf[.EC.egt4_c] = @ChannelProfile { min = 0, max = 1200 } ; //  exhaust gas temp, c
+	    chanProf[.EC.egt4_f] = @ChannelProfile {  // exhaust gas temp, f
+		min <- (chanProf[.EC.egt4_c].min * 1.8 + 32),  
+		max <- (chanProf[.EC.egt4_c].max * 1.8 + 32) 
+	    };
+
+	    chanProf[.EC.egt5_c] = @ChannelProfile { min = 0, max = 1200 } ; //  exhaust gas temp, c
+	    chanProf[.EC.egt5_f] = @ChannelProfile {  // exhaust gas temp, f
+		min <- (chanProf[.EC.egt5_c].min * 1.8 + 32),  
+		max <- (chanProf[.EC.egt5_c].max * 1.8 + 32) 
+	    };
+
+	    chanProf[.EC.egt6_c] = @ChannelProfile { min = 0, max = 1200 } ; //  exhaust gas temp, c
+	    chanProf[.EC.egt6_f] = @ChannelProfile {  // exhaust gas temp, f
+		min <- (chanProf[.EC.egt6_c].min * 1.8 + 32),  
+		max <- (chanProf[.EC.egt6_c].max * 1.8 + 32) 
+	    };
+
+	    chanProf[.EC.egt7_c] = @ChannelProfile { min = 0, max = 1200 } ; //  exhaust gas temp, c
+	    chanProf[.EC.egt7_f] = @ChannelProfile {  // exhaust gas temp, f
+		min <- (chanProf[.EC.egt7_c].min * 1.8 + 32),  
+		max <- (chanProf[.EC.egt7_c].max * 1.8 + 32) 
+	    };
+
+	    chanProf[.EC.egt8_c] = @ChannelProfile { min = 0, max = 1200 } ; //  exhaust gas temp, c
+	    chanProf[.EC.egt8_f] = @ChannelProfile {  // exhaust gas temp, f
+		min <- (chanProf[.EC.egt8_c].min * 1.8 + 32),  
+		max <- (chanProf[.EC.egt8_c].max * 1.8 + 32) 
+	    };
+
+
+// 	    chanProf[.EC.bip_mbar] = @ChannelProfile { min = 200, max = 2200 }; // before intercooler pressure
+// 	    chanProf[.EC.bip_psi] = @ChannelProfile {  
+// 		min <- (chanProf[.EC.bip_mbar].min * 0.0145037738), 
+// 		max <- (chanProf[.EC.bip_mbar].max * 0.0145037738) 
+// 	    };
+
+
+// 	    chanProf[.EC.aip_mbar] = @ChannelProfile { min = 200, max = 2200 }; // after intercooler pressure
+// 	    chanProf[.EC.aip_psi] = @ChannelProfile {  
+// 		min <- (chanProf[.EC.aip_mbar].min * 0.0145037738), 
+// 		max <- (chanProf[.EC.aip_mbar].max * 0.0145037738) 
+// 	    };
+
+
+	    chanProf[.EC.bip_mbar] = @ChannelProfile { min = 200.0, max = 2400.0 }; // before intercooler pressure
+	    chanProf[.EC.bip_psi] = @ChannelProfile {  
+		min = -25.0,
+		max =  25.0,
+		normal = @ScalarInterpolator {
+		    key = { -24, 0.0, 25 },
+		    keyValue = {0, 0.5, 1}
+		}
+	    };
+
+	    chanProf[.EC.aip_mbar] = @ChannelProfile { min = 200.0, max = 2400.0 }; // after intercooler pressure
+	    chanProf[.EC.aip_psi] = @ChannelProfile {  
+		min = -25.0,
+		max =  25.0,
+		normal = @ScalarInterpolator {
+		    key = { -24, 0.0, 25 },
+		    keyValue = {0, 0.5, 1}
+		}
+	    };
+
+
+	    chanProf[.EC.ccp_mbar] = @ChannelProfile { min = 200, max = 2200 }; // Crank case pressure
+	    chanProf[.EC.ccp_psi] = @ChannelProfile {  
+		min <- (chanProf[.EC.ccp_mbar].min * 0.0145037738), 
+		max <- (chanProf[.EC.ccp_mbar].max * 0.0145037738) 
+	    };
+
+
+	    chanProf[.EC.wp_mbar] = @ChannelProfile { min = 200, max = 3000 }; // water pressure
+	    chanProf[.EC.wp_psi] = @ChannelProfile {  
+		min <- (chanProf[.EC.wp_mbar].min * 0.0145037738), 
+		max <- (chanProf[.EC.wp_mbar].max * 0.0145037738) 
+	    };
+
+
+	    chanProf[.EC.fdt_c] = @ChannelProfile { min = -20, max = 100 } ; //  front diff temp
+	    chanProf[.EC.fdt_f] = @ChannelProfile {  
+		min <- (chanProf[.EC.fdt_c].min * 1.8 + 32),  
+		max <- (chanProf[.EC.fdt_c].max * 1.8 + 32) 
+	    };
+
+	    chanProf[.EC.rdt_c] = @ChannelProfile { min = -20, max = 100 } ; //  rear diff temp
+	    chanProf[.EC.rdt_f] = @ChannelProfile {  
+		min <- (chanProf[.EC.rdt_c].min * 1.8 + 32),  
+		max <- (chanProf[.EC.rdt_c].max * 1.8 + 32) 
+	    };
+
+	    chanProf[.EC.cdt_c] = @ChannelProfile { min = -20, max = 100 } ; //  center diff temp
+	    chanProf[.EC.cdt_f] = @ChannelProfile {  
+		min <- (chanProf[.EC.cdt_c].min * 1.8 + 32),  
+		max <- (chanProf[.EC.cdt_c].max * 1.8 + 32) 
+	    };
+
+	    chanProf[.EC.gbt_c] = @ChannelProfile { min = -20, max = 100 } ; //  Gear box temp
+	    chanProf[.EC.gbt_f] = @ChannelProfile {  
+		min <- (chanProf[.EC.gbt_c].min * 1.8 + 32),  
+		max <- (chanProf[.EC.gbt_c].max * 1.8 + 32) 
+	    };
+
+	    chanProf[.EC.bit_c] = @ChannelProfile { min = -20, max = 150 } ; //  Before intercooler temp
+	    chanProf[.EC.bit_f] = @ChannelProfile {  
+		min <- (chanProf[.EC.bit_c].min * 1.8 + 32),  
+		max <- (chanProf[.EC.bit_c].max * 1.8 + 32) 
+	    };
+
+	    chanProf[.EC.ait_c] = @ChannelProfile { min = -20, max = 150 } ; //  After intercooler temp
+	    chanProf[.EC.ait_f] = @ChannelProfile {  
+		min <- (chanProf[.EC.ait_c].min * 1.8 + 32),  
+		max <- (chanProf[.EC.ait_c].max * 1.8 + 32) 
+	    };
+
+
+	    chanProf[.EC.ft_c] = @ChannelProfile { min = -20, max = 100 } ; //  Fuel temp
+	    chanProf[.EC.ft_f] = @ChannelProfile {  
+		min <- (chanProf[.EC.ft_c].min * 1.8 + 32),  
+		max <- (chanProf[.EC.ft_c].max * 1.8 + 32) 
+	    };
+	    chanProf[.EC.latency] = @ChannelProfile { min = 0, max = 1.0 } ; //  Latency
+	    chanProf[.EC.fpw] = @ChannelProfile { min = 0, max = 20 } ; //  Fuel pulse width
+	}
+    };
+
+
+    //
+    // A single channel supported by the engine.
+    //
+    type EngineChannel {
+	public event float value = 0;
+        public event int usage = 0;
+        public event float min = 0; 
+        public event float max = 0;
+        public LogWriteChannel logChannel = nil;
+        public event bool supported = false;
+	public :EC:Descriptor descriptor;
+	public int index = -1;
+        public Damper valueDampened;
+	bool latch = false;
+	MinValue minDB; // Lowest recorded value seen for this channel. Persistent.
+	MaxValue maxDB; // Highest recorded value seen for this channel. Persistent.
+        event float minValue;
+        event float maxValue;
+        public event float minMaxNormal; // 0.0 - 1.0 based on value in the minValue maxValue corridor.
+	ScalarInterpolator normal = nil;
+        event VehicleProfile:ChannelProfile profile = nil; // The channel profile to use.
+	//        event VehicleProfile:ChannelProfile prevProfile = nil; // The previous channel profile
+
+	script profile when profile != nil {
+	    normal := profile.normal; // Copy from channel profile
+	    normal.fraction <- valueDampened.outValue;
+	    normal.fraction = valueDampened.outValue;
+	}
+
+	script supported when supported {
+	    //  		printf("Supported: [%s][%s]\n", descriptor.name, descriptor.unitType);	    
+	}
+
+  	script value {
+	    //	    printf("[%s/%d]=[%f]\n", descriptor.name, index, value);
+  	    // Check if we should update log channel.
+//   	    if (logChannel != nil) {
+//  		printf("LOG: [%u] [%s]=[%f][%s]\n", inow(), name, value, unitType);
+//   		logChannel.value = value;
+//   	    } else
+  	}
+
+
+	script usage  {
+	    //	    printf("[%s | %s] usage[%d]\n", descriptor.shortName, descriptor.shortUnitType,  usage);
+	    // Check if we should enable damper
+	    if (usage > 0) {
+		valueDampened.enabled = true;
+	    }
+	    else
+		valueDampened.enabled = false;
+	}	    
+
+	script minValue || maxValue || value {
+	    if (minValue != maxValue)
+		minMaxNormal  = (value - minValue) / (maxValue - minValue);
+	    else
+		minMaxNormal  = 0.0;
+
+	}
+
+	
+	script EngineChannel {
+
+	    if (descriptor != nil)
+		valueDampened = @Damper { interval = descriptor.updateInterval, hz = 25.0 }; // Dampened value.
+	    else
+		valueDampened = @Damper { interval = 0.5, hz = 25.0 }; // Dampened value.
+
+	    valueDampened.inValue <- value;
+
+	    minDB = @MinValue { value <- value, channel = index };
+	    maxDB = @MaxValue { value <- value, channel = index };
+	    minValue <- minDB.minValue;
+	    maxValue <- maxDB.maxValue;
+	}
+    };
+
+    //
+    // Engine base
+    //
+    type EngineBase {
+	// 
+	// See .EC. for info on each channel
+	//
+	EngineChannel channels[] = {};
+	LogWriter logWriter = LogWriter { };
+	VehicleProfile vehicleProfiles[] = {};
+	event int currentVehicleProfile = -1;
+	event bool setupDependentChannels;
+	event bool storeMaxHpToDB; // maxHp -> maxHpDB
+	event bool storeMinMax;
+
+	event string setConfigName = "";
+	event int setConfigValue = 0;
+	// maxHpDB[0] == max hp for 2000 RPM
+	// maxHpDB[1] == max hp for 2050 RPM
+	// maxHpDB[2] == max hp for 2100 RPM
+	// ...
+	// maxHpDB[160] == max hp for 10000 RPM.
+	Pfloat maxHpDB[161];
+	ScalarInterpolator maxHp = nil;
+	
+	//	event bool test;
+
+	// 0 = undefined
+	// 1 = not connected
+	// 2 = initializing
+	// 3 = running
+	// 4 = dependent channels setup by engine_base.m1
+	event int state = 0;
+
+    	// VIN 
+    	public string vin = "";
+
+	int i;
+
+	//
+	// Calculate the current fuel consumption based on speed  and mass airflow.
+	//
+	type FuelConsumptionCalc {
+	    //
+	    // The kph feed from the engine.
+	    //
+            public event float kph = 0; 
+
+	    //
+	    // The maf feed from the engine
+	    //
+            public event float maf_g = 0;
+	    
+	    //
+	    // The MPG (miles per gallon output
+	    //
+            public event float mpg = 0;
+
+	    //
+	    // Usage count of this mpg calculator.
+	    //
+            public event int usage;
+
+	    //
+	    // The vehicle for which we are calulating the gears.
+	    // gearRatios and gearInterval are used from
+	    // this object.
+	    //
+            public VehicleProfile vehicle = nil;
+
+	    //
+	    // Where can I grab my channels?
+	    //
+	    EngineBase owner = nil;
+
+
+	    //
+	    // Update interval in seconds
+	    // 
+	    float updateInterval = 3.0;
+
+	    event bool update;
+
+	    unsigned lastTS = 0;
+
+	    float maf_g_tot = 0.0;
+	    unsigned maf_g_count = 0;
+
+	    float kph_tot = 0.0;
+	    unsigned kph_count = 0;
+	    int localUsage = 0;
+
+
+	    script kph {
+		kph_tot += kph;
+		kph_count++;
+	    }
+
+	    script maf_g {
+		maf_g_tot += maf_g;
+		maf_g_count++;
+	    }
+	    
+	    script update {
+		float kph_avg;
+		float maf_avg;
+		    
+		if (maf_g_count == 0 || kph_count == 0) {
+		    mpg = 0;
+		    update <- @Timer { cycleInterval = updateInterval }.active;
+		    break;
+		}
+
+		kph_avg = kph_tot / @float(kph_count);
+		maf_avg = maf_g_tot / @float(maf_g_count);
+		kph_tot = 0.0; 
+		maf_g_tot = 0.0;
+		maf_g_count = 0.0;
+		kph_count = 0.0;
+
+		mpg = (kph_avg / 1.609344) / (((maf_avg * 3600.0) / 14.7) / 2801.0);
+		update <- @Timer { cycleInterval = updateInterval }.active;
+	    }
+
+	    script usage when usage > 0  {
+		// Turn on timer update.
+		if (!localUsage) {
+		    update <- @Timer { cycleTime = updateInterval }.active;
+		    maf_g <- owner.channels[.EC.maf_g].value;
+		    kph <- owner.channels[.EC.kph].value;
+		    localUsage = usage;
+		}
+	    }
+
+	    script usage when usage == 0 {
+		// Turn on timer update.
+		if (localUsage) {
+		    update <- nil;
+		    maf_g <- nil;
+		    kph <- nil;
+		    localUsage = 0;
+		}
+	    }
+
+	    //
+	    // Accumulated fuel consumption:
+	    //
+	    if (owner.channels[.EC.kph].supported && owner.channels[.EC.maf_g].supported) {
+		usage <- owner.channels[.EC.mpg].usage;
+		owner.channels[.EC.mpg].value <-  mpg;
+		owner.channels[.EC.mpg].supported = true;
+		owner.channels[.EC.mpg].min = vehicle.chanProf[.EC.mpg].min;
+		owner.channels[.EC.mpg].max = vehicle.chanProf[.EC.mpg].max;
+	    }
+
+	};
+
+	FuelConsumptionCalc fuelCalc = nil;
+
+	//
+	// Calculate the current acceleration based on speed deltas
+	//
+	type GForceCalc {
+	    //
+	    // The kph feed from the engine.
+	    //
+            public event float kph = 0; 
+
+	    //
+	    // The acceleration/deceleration in millig.
+	    //
+            public event float gforce = 0;
+
+	    //
+	    // How often to calculate gforce
+	    // 
+	    public float interval = 0.75;
+
+	    //
+	    // Usage count of this gforce calculator.
+	    //
+            public event int usage;
+
+
+	    EngineBase owner = nil;
+
+	    //
+	    // The vehicle for which we are calulating the gears.
+	    // gearRatios and gearInterval are used from
+	    // this object.
+	    //
+            public VehicleProfile vehicle = nil;
+	    
+	    //
+	    // Last speed measurement
+	    //
+            float lastKph = 0;
+	    
+	    //
+	    // Update interval, in seconds
+	    //
+	    float updateInterval = 0.8;
+
+	    //
+	    // Last timestamp
+	    //
+	    unsigned lastTS = 0;
+	    
+	    event bool update;
+
+	    Timeout timeout = nil;
+
+	    script update {
+		float spd_delta;
+		unsigned ts_delta;
+		unsigned cur_time = inow();
+		spd_delta = (kph - lastKph)/3.6; // Speed delta in m/s
+		ts_delta = cur_time - lastTS; // Milliseconds since last measurement
+
+		
+		if (spd_delta != 0.0)
+		    gforce = ((spd_delta / ts_delta) / 9.81) * 1000000;
+		else 
+		    gforce = 0.0;
+
+		//		printf("spd[%f] spd_delta[%f] ts_delta[%d] Gforce[%f]\n", kph, spd_delta, ts_delta, gforce);
+
+		lastTS = cur_time;
+		lastKph = kph;
+
+		timeout.reset = true; // reset.
+		timeout.enabled = true; // enabled.
+	    }
+	    
+	    script GForceCalc {
+		if (owner.channels[.EC.kph].supported) {
+		    kph <- owner.channels[.EC.kph].value;
+
+		    usage <- owner.channels[.EC.gforce].usage;
+		    owner.channels[.EC.gforce].value <-  gforce;
+		    owner.channels[.EC.gforce].supported = true;
+		    owner.channels[.EC.gforce].min = vehicle.chanProf[.EC.gforce].min;
+		    owner.channels[.EC.gforce].max = vehicle.chanProf[.EC.gforce].max;
+		    timeout = @Timeout { duration = updateInterval };
+		    update <- timeout.timeout;
+ 		}
+	    }
+	};
+
+	GForceCalc gforceCalc = nil;
+
+
+	//
+	// Calculate the gear currently in use by looking at the relation
+	// between RPM and speed.
+	// Uses 
+	//
+	type GearCalc {
+	    //
+	    // The rpm feed from the engine.
+	    //
+            public event float rpm = 0; 
+
+	    //
+	    // The kph feed from the engine
+	    //
+            public event float kph = 0;
+ 
+
+	    //
+	    // The calculated gear.
+	    // 0 = No gear recognized.
+	    // 1-10 = The selected gear.
+            public event float gear = 0;
+
+	    //
+	    // The vehicle for which we are calulating the gears.
+	    // gearRatios and gearInterval are used from
+	    // this object.
+	    //
+            public event  VehicleProfile vehicle = nil;
+	
+	    //
+	    // Usage count of this gear calculator.
+	    //
+            public event int usage;
+
+	    //
+	    // How long (in seconds), the ratio must be within its
+	    // interval in order for the gear to be active.
+	    //
+	    unsigned int lockPeriod = 500;
+
+	    Pfloat gearRatios[] = {
+		@Pfloat { key = "engine.gearRatio.1", value = 0.0 },
+		@Pfloat { key = "engine.gearRatio.2", value = 0.0 },	
+		@Pfloat { key = "engine.gearRatio.3", value = 0.0 },
+		@Pfloat { key = "engine.gearRatio.4", value = 0.0 },
+		@Pfloat { key = "engine.gearRatio.5", value = 0.0 },
+		@Pfloat { key = "engine.gearRatio.6", value = 0.0 }
+	    };
+
+	    Pfloat gearInterval[] = {
+		@Pfloat { key = "engine.gearInterval.1", value = 0.0 },
+		@Pfloat { key = "engine.gearInterval.2", value = 0.0 },	
+		@Pfloat { key = "engine.gearInterval.3", value = 0.0 },
+		@Pfloat { key = "engine.gearInterval.4", value = 0.0 },
+		@Pfloat { key = "engine.gearInterval.5", value = 0.0 },
+		@Pfloat { key = "engine.gearInterval.6", value = 0.0 }
+	    };
+
+	    //
+	    // The time stamp when a lock interval was found.
+	    //
+	    time candidateStart;
+
+	    EngineBase owner = nil;
+	    //
+	    // The candidate gear that must stay within
+	    // a gearRatio[x] +- gearInterval[x] for at least
+	    // lockPeriod seconds in order to be copied to gear.
+	    //
+	    int candidate = 0;
+	    
+	    event time trigger <- @Timer { cycleInterval = lockPeriod }.cycleTime;
+
+	    script kph || rpm when (rpm <= 1200.0 || kph == 0.0) && vehicle != nil && usage > 0 {
+		*gear = 0.0;
+	    }
+
+	    script kph || rpm || trigger when rpm > 1200.0 && kph > 0.0 && vehicle != nil && usage > 0 {
+		int new_gear = 0;
+		int i = 0;
+		// Reset trigger.
+		trigger <- @Timer { cycleInterval = @float(lockPeriod) / 1000.0 }.cycleTime;
+
+		//
+		// Locate a gear
+		//
+		//		printf("%.2f - ", rpm / kph);
+		foreach i in [ 0 : size(gearRatios) - 1] {
+
+		    if (gearRatios[i].value > 0.0 &&
+			rpm / kph > gearRatios[i].value - gearInterval[i].value &&
+			rpm / kph < gearRatios[i].value + gearInterval[i].value) {
+			new_gear = i + 1;
+			//			printf("*");
+		    }
+// 		    printf("%d[%03.2f-%03.2f] ",
+// 			   i + 1,
+// 			   gearRatios[i].value - gearInterval[i].value,
+// 			   gearRatios[i].value + gearInterval[i].value);
+		}
+		//		printf("\n");
+
+		//		printf("gear [%f], candidate[%d], new_gear[%d]\n", gear, candidate, new_gear);
+		//
+		// Check if the new gear is the same as the one we have.
+		//
+		if (new_gear == @int(gear))
+		    break;
+
+		//
+		// Check if the found gear (or 0 if no gear was found)
+		// is different from the candidate.
+		// If so, reset the candidate to the found
+		// gear and start over the interval.
+		//
+		if (new_gear != candidate) {
+		    candidate = new_gear;
+		    candidateStart = inow();
+		    break;
+		}
+	    
+		//
+		// Check if the required time interval
+		// has elapsed.
+		//
+		if (inow() - candidateStart < lockPeriod) {
+		    break;
+		}
+
+// 		printf("inow[%lu] - candidateStart[%lu] [%lu] < lockPeriod[%lu]\n",
+// 			   inow(), candidateStart, inow() - candidateStart, lockPeriod);
+		//
+		// We have a new gear.
+		//
+		*gear = @float(candidate);
+	    }
+	    
+	    if (owner.channels[.EC.rpm].supported && owner.channels[.EC.kph].supported) {
+		rpm <- owner.channels[.EC.rpm].value;
+		kph <- owner.channels[.EC.kph].value;
+		usage <- owner.channels[.EC.gear].usage;
+		owner.channels[.EC.gear].value <-  gear;
+		owner.channels[.EC.gear].supported = true;
+		owner.channels[.EC.gear].min = vehicle.chanProf[.EC.gear].min;
+		owner.channels[.EC.gear].max = vehicle.chanProf[.EC.gear].max;
+	    } 
+	};
+	//
+	// Event driven converter between mbar and psi-in
+	// We cannot use a Scalar interpolator since the key
+	// and key values may change during execution./
+	// 
+	type MbarToPSIIN {
+	    event float mbar_min = 0.0;
+	    event float mbar_max = 0.0;
+	    event float psiin_min = 0.0;
+	    event float psiin_max = 0.0;
+	    event float value;
+	    event float fraction;
+	    ScalarInterpolator ip = @ScalarInterpolator{
+		key = { 0.0, 1013.0, 0.0 },
+		keyValue = { 0.0, 0.0, 0.0 }
+	    };
+	    
+	    script mbar_min {
+		ip.key[0] = mbar_min;
+	    }
+	    
+	    script mbar_max {
+		ip.key[2] = mbar_max;
+	    }
+	    
+	    script psiin_min {
+		ip.keyValue[0] = psiin_min;
+	    }
+
+	    script psiin_max {
+		ip.keyValue[2] = psiin_max;
+	    }
+
+
+	    script MbarToPSIIN {
+		ip.key[0] = mbar_min;
+		ip.key[2] = mbar_max;
+		ip.keyValue[0] = psiin_min;
+		ip.keyValue[2] = psiin_max;
+		ip.fraction = ip.fraction;
+		value <- ip.value;
+		ip.fraction <- fraction;
+	    }
+	};
+
+	GearCalc gearCalc = nil;
+	
+	// Stored tire dimensions
+	Psigned tireWidthDB = @Psigned { key = "engine.tireWidth", value = 0 };	 
+	Psigned tireSidewallRatioDB = @Psigned { key = "engine.tireSidewallRatio", value = 0 };	 
+	Psigned tireRimDiameterDB = @Psigned { key = "engine.tireRimDiameter", value = 0 };	
+	event float tireDiameter <- ((tireWidthDB.value * 0.01 * tireSidewallRatioDB.value)) * 2  + (tireRimDiameterDB.value * 25.4);
+
+
+	//
+	// Store maxHp into DB
+	//
+	script storeMaxHpToDB when storeMaxHpToDB {
+	    int ind;
+	    int samplingSize = size(maxHp.keyValue);
+	    storeMaxHpToDB = false;
+	    
+	    foreach ind in [0:160] {
+		if (ind < samplingSize) {
+		    maxHpDB[ind].value = maxHp.keyValue[ind];
+//		    printf("maxHpDB[%d (%d)] = %f\n", ind, ind * 50 + 2000, maxHpDB[ind].value);
+		}
+		else
+		    maxHpDB[ind].value = 0.0;
+	    }
+	}
+
+	//
+	// Reassign all gauges' profile to the newly selected vehicle profile
+	//
+	script currentVehicleProfile when currentVehicleProfile != -1 {
+//	    printf("Reassigning channel vehicle profile to [%s]!\n", vehicleProfiles[currentVehicleProfile].model);
+	    foreach i in [ 0 : size(channels) - 1 ] {
+ 		channels[i].profile = vehicleProfiles[currentVehicleProfile].chanProf[i];
+ 	    }
+
+	    // Update the gear calc channel
+	    if (channels[.EC.gear].supported) {
+		channels[.EC.gear].min = vehicleProfiles[currentVehicleProfile].chanProf[.EC.gear].min;
+		channels[.EC.gear].max = vehicleProfiles[currentVehicleProfile].chanProf[.EC.gear].max;
+		gearCalc.vehicle = vehicleProfiles[currentVehicleProfile];
+	    }
+
+	    // Update the gforce calc channel
+	    if (channels[.EC.gforce].supported) {
+		channels[.EC.gforce].min = vehicleProfiles[currentVehicleProfile].chanProf[.EC.gforce].min;
+		channels[.EC.gforce].max = vehicleProfiles[currentVehicleProfile].chanProf[.EC.gforce].max;
+		gforceCalc.vehicle = vehicleProfiles[currentVehicleProfile];
+	    }
+
+	    // Update the mpg calc channel
+	    if (channels[.EC.mpg].supported) {
+		channels[.EC.mpg].min = vehicleProfiles[currentVehicleProfile].chanProf[.EC.mpg].min;
+		channels[.EC.mpg].max = vehicleProfiles[currentVehicleProfile].chanProf[.EC.mpg].max;
+		fuelCalc.vehicle = vehicleProfiles[currentVehicleProfile];
+	    }
+
+	    // Is this needed?
+	    if (channels[.EC.hp].supported) {
+		channels[.EC.hp].min = vehicleProfiles[currentVehicleProfile].chanProf[.EC.hp].min;
+		channels[.EC.hp].max = vehicleProfiles[currentVehicleProfile].chanProf[.EC.hp].max;
+	    }
+
+	    // Is this needed?
+	    if (channels[.EC.torque_nm].supported) {
+		channels[.EC.torque_nm].min = vehicleProfiles[currentVehicleProfile].chanProf[.EC.torque_nm].min;
+		channels[.EC.torque_nm].max = vehicleProfiles[currentVehicleProfile].chanProf[.EC.torque_nm].max;
+	    }
+	}
+
+
+
+	//
+	// Setup dependent channels
+	//
+	script setupDependentChannels when setupDependentChannels && state == 3 {
+	    int ind;
+
+	    //	    printf("Setupdepchan[%s]\n", sender(setupDependentChannels));
+	    channels[.EC.map_psi].supported <- channels[.EC.map_mbar].supported;
+	    channels[.EC.map_psi].min = (channels[.EC.map_mbar].min * 0.0145037738);
+	    channels[.EC.map_psi].max = (channels[.EC.map_mbar].max * 0.0145037738);
+	    channels[.EC.map_psi].value <- (channels[.EC.map_mbar].value * 0.0145037738);
+
+ 	    channels[.EC.map_mbarcm].supported = 0;
+// 	    channels[.EC.map_mbarcm].supported <- channels[.EC.map_mbar].supported;
+// 	    channels[.EC.map_mbarcm].supported <- channels[.EC.map_mbar].supported;
+// 	    channels[.EC.map_mbarcm].min <- (0 - (1013 - channels[.EC.map_mbar].min) * 0.0750061683);
+// 	    channels[.EC.map_mbarcm].max <- channels[.EC.map_mbar].max - 1013;
+// 	    channels[.EC.map_mbarcm].value <- @ScalarInterpolator {
+// 		key = { channels[.EC.map_mbar].min, 1013, channels[.EC.map_mbarcm].max },
+// 		keyValue = { channels[.EC.map_mbarcm].min, 0, channels[.EC.map_mbarcm].max },
+// 		fraction <- channels[.EC.map_mbar].value
+// 	    }.value;
+
+ 	    channels[.EC.map_psiin].supported <- channels[.EC.map_mbar].supported;
+ 	    channels[.EC.map_psiin].min <- (0 - (1013 - channels[.EC.map_mbar].min) * 0.0295299875);
+ 	    channels[.EC.map_psiin].max <- ((channels[.EC.map_mbar].max - 1013) * 0.0145037738);
+ 	    channels[.EC.map_psiin].value <- @MbarToPSIIN {
+		mbar_min <- channels[.EC.map_mbar].min,
+		    mbar_max <- channels[.EC.map_mbar].max,
+		    psiin_min <- channels[.EC.map_psiin].min,
+		    psiin_max <- channels[.EC.map_psiin].max,
+		    fraction <- channels[.EC.map_mbar].value
+ 	    }.value;
+//  	    channels[.EC.map_psiin].value <- @ScalarInterpolator {
+//  		key = { channels[.EC.map_mbar].min, 1013, channels[.EC.map_mbar].max },
+//  		keyValue = { channels[.EC.map_psiin].min, 0, channels[.EC.map_psiin].max },
+//  		fraction <- channels[.EC.map_mbar].value
+//  	    }.value;
+
+	    channels[.EC.mph].supported <- channels[.EC.kph].supported;
+	    channels[.EC.mph].min <- (channels[.EC.kph].min * 0.621371192);
+	    channels[.EC.mph].max <- (channels[.EC.kph].max * 0.621371192);
+	    channels[.EC.mph].value <- (channels[.EC.kph].value * 0.621371192);
+
+	    channels[.EC.ect_f].supported <- channels[.EC.ect_c].supported;
+	    channels[.EC.ect_f].min <- (channels[.EC.ect_c].min * 1.8 + 32);
+	    channels[.EC.ect_f].max <- (channels[.EC.ect_c].min * 1.8 + 32);
+	    channels[.EC.ect_f].value <- (channels[.EC.ect_c].value * 1.8 + 32);
+
+	    channels[.EC.iat_f].supported <- channels[.EC.iat_c].supported;
+	    channels[.EC.iat_f].min <- (channels[.EC.iat_c].min * 1.8 + 32);
+	    channels[.EC.iat_f].max <- (channels[.EC.iat_c].min * 1.8 + 32);
+	    channels[.EC.iat_f].value <- (channels[.EC.iat_c].value * 1.8 + 32);
+
+	    channels[.EC.aat_f].supported <- channels[.EC.aat_c].supported;
+	    channels[.EC.aat_f].min <- (channels[.EC.aat_c].min * 1.8 + 32);
+	    channels[.EC.aat_f].max <- (channels[.EC.aat_c].min * 1.8 + 32);
+	    channels[.EC.aat_f].value <- (channels[.EC.aat_c].value * 1.8 + 32);
+
+	    channels[.EC.eot_f].supported <- channels[.EC.eot_c].supported;
+	    channels[.EC.eot_f].min <- (channels[.EC.eot_c].min * 1.8 + 32);
+	    channels[.EC.eot_f].max <- (channels[.EC.eot_c].min * 1.8 + 32);
+	    channels[.EC.eot_f].value <- (channels[.EC.eot_c].value * 1.8 + 32);
+
+	    channels[.EC.eot_f].supported <- channels[.EC.eot_c].supported;
+	    channels[.EC.eot_f].min <- (channels[.EC.eot_c].min * 1.8 + 32);
+	    channels[.EC.eot_f].max <- (channels[.EC.eot_c].min * 1.8 + 32);
+	    channels[.EC.eot_f].value <- (channels[.EC.eot_c].value * 1.8 + 32);
+
+	    channels[.EC.fp_psi].supported <- channels[.EC.fp_mbar].supported;
+	    channels[.EC.fp_psi].min = (channels[.EC.fp_mbar].min * 0.0145037738);
+	    channels[.EC.fp_psi].max = (channels[.EC.fp_mbar].max * 0.0145037738);
+	    channels[.EC.fp_psi].value <- (channels[.EC.fp_mbar].value * 0.0145037738);
+
+
+	    channels[.EC.wp_psi].supported <- channels[.EC.wp_mbar].supported;
+	    channels[.EC.wp_psi].min = (channels[.EC.wp_mbar].min * 0.0145037738);
+	    channels[.EC.wp_psi].max = (channels[.EC.wp_mbar].max * 0.0145037738);
+	    channels[.EC.wp_psi].value <- (channels[.EC.wp_mbar].value * 0.0145037738);
+
+	    channels[.EC.eop_psi].supported <- channels[.EC.eop_mbar].supported;
+	    channels[.EC.eop_psi].min = (channels[.EC.eop_mbar].min * 0.0145037738);
+	    channels[.EC.eop_psi].max = (channels[.EC.eop_mbar].max * 0.0145037738);
+	    channels[.EC.eop_psi].value <- (channels[.EC.eop_mbar].value * 0.0145037738);
+
+	    channels[.EC.bap_psi].supported <- channels[.EC.bap_mbar].supported;
+	    channels[.EC.bap_psi].min = (channels[.EC.bap_mbar].min * 0.0145037738);
+	    channels[.EC.bap_psi].max = (channels[.EC.bap_mbar].max * 0.0145037738);
+	    channels[.EC.bap_psi].value <- (channels[.EC.bap_mbar].value * 0.0145037738);
+
+	    channels[.EC.ccp_psi].supported <- channels[.EC.ccp_mbar].supported;
+	    channels[.EC.ccp_psi].min = (channels[.EC.ccp_mbar].min * 0.0145037738);
+	    channels[.EC.ccp_psi].max = (channels[.EC.ccp_mbar].max * 0.0145037738);
+	    channels[.EC.ccp_psi].value <- (channels[.EC.ccp_mbar].value * 0.0145037738);
+
+	    channels[.EC.maf_o].supported <- channels[.EC.maf_g].supported;
+	    channels[.EC.maf_o].min = (channels[.EC.maf_g].min * 0.0352739619);
+	    channels[.EC.maf_o].max = (channels[.EC.maf_g].max * 0.0352739619);
+	    channels[.EC.maf_o].value <- (channels[.EC.maf_g].value * 0.0352739619);
+
+	    channels[.EC.rtps].supported <- channels[.EC.atps].supported;
+	    channels[.EC.rtps].min = 0;
+	    channels[.EC.rtps].max = 100;
+	    channels[.EC.rtps].value <- (channels[.EC.atps].minMaxNormal * 100); // Convert normalized 0.0 - 1.0 value to %
+
+	    gearCalc = @GearCalc { owner = this, vehicle = vehicleProfiles[currentVehicleProfile] };
+	    fuelCalc = @FuelConsumptionCalc { owner = this, vehicle = vehicleProfiles[currentVehicleProfile] };
+	    gforceCalc = @GForceCalc { owner = this, vehicle = vehicleProfiles[currentVehicleProfile] };
+
+	    channels[.EC.torque_lbft].supported <- channels[.EC.torque_nm].supported;
+	    channels[.EC.torque_lbft].min = (channels[.EC.torque_nm].min * 0.737562149);
+	    channels[.EC.torque_lbft].max = (channels[.EC.torque_nm].max * 0.737562149);
+	    channels[.EC.torque_lbft].value <- (channels[.EC.torque_nm].value * 0.737562149);
+
+// 	    channels[.EC.mpg].supported <- channels[.EC.lp100k].supported;
+// 	    channels[.EC.mpg].min = (162.1371192 / (channels[.EC.lp100k].min * 0.264172051));
+// 	    channels[.EC.mpg].max = (162.1371192 / (channels[.EC.lp100k].max * 0.264172051));
+// 	    channels[.EC.mpg].value <- (162.1371192 / (channels[.EC.lp100k].value * 0.264172051));
+	    
+	    // Setup lambda afr.
+	    channels[.EC.lam_1_1_a].supported <- channels[.EC.lam_1_1_l].supported;
+	    channels[.EC.lam_1_1_a].value <- (channels[.EC.lam_1_1_l].value * 14.7);
+
+	    channels[.EC.lam_1_2_a].supported <- channels[.EC.lam_1_2_l].supported;
+	    channels[.EC.lam_1_2_a].value <- (channels[.EC.lam_1_2_l].value * 14.7);
+
+	    channels[.EC.lam_2_1_a].supported <- channels[.EC.lam_2_1_l].supported;
+	    channels[.EC.lam_2_1_a].value <- (channels[.EC.lam_2_1_l].value * 14.7);
+
+	    channels[.EC.lam_2_2_a].supported <- channels[.EC.lam_2_2_l].supported;
+	    channels[.EC.lam_2_2_a].value <- (channels[.EC.lam_2_2_l].value * 14.7);
+
+	    channels[.EC.bip_psi].supported <- channels[.EC.bip_mbar].supported;
+	    channels[.EC.bip_psi].min <- (0 - (1013 - channels[.EC.bip_mbar].min) * 0.0295299875);
+	    channels[.EC.bip_psi].max <- ((channels[.EC.bip_mbar].max - 1013) * 0.0145037738);
+ 	    channels[.EC.bip_psi].value <- @MbarToPSIIN {
+ 		    mbar_min <- channels[.EC.bip_mbar].min,
+		    mbar_max <- channels[.EC.bip_mbar].max,
+		    psiin_min <- channels[.EC.bip_psi].min,
+		    psiin_max <- channels[.EC.bip_psi].max,
+		    fraction <- channels[.EC.bip_mbar].value
+ 	    }.value;
+
+	    channels[.EC.aip_psi].supported <- channels[.EC.aip_mbar].supported;
+	    channels[.EC.aip_psi].min <- (0 - (1013 - channels[.EC.aip_mbar].min) * 0.0295299875);
+	    channels[.EC.aip_psi].max <- ((channels[.EC.aip_mbar].max - 1013) * 0.0145037738);
+ 	    channels[.EC.aip_psi].value <- @MbarToPSIIN {
+		    mbar_min <- channels[.EC.aip_mbar].min,
+		    mbar_max <- channels[.EC.aip_mbar].max,
+		    psiin_min <- channels[.EC.aip_psi].min,
+		    psiin_max <- channels[.EC.aip_psi].max,
+		    fraction <- channels[.EC.aip_mbar].value
+ 	    }.value;
+
+	    storeMinMax <- @Timer { cycleInterval = 5.0 }.active;
+
+	    // Rst maxHp to new instance.
+	    maxHp = @ScalarInterpolator { key = {}, keyValue = {} };
+	    foreach ind in [0:160] {
+		maxHp.key[ind] = ind * 50 + 2000;
+		maxHp.keyValue[ind] = maxHpDB[ind].value;
+	    }
+
+	    //
+	    // Setup the maxHp interpolator to be indexed
+	    // by RPM.
+	    //
+	    if (channels[.EC.rpm].supported) {
+		maxHp.fraction <- channels[.EC.rpm].value;
+		//		test <- @Timer { cycleInterval = 1.0 }.active;	   
+	    }
+
+	    // 
+	    // Setup HP and torque values. Triggered by reloadMaxHpFromDB below.
+	    //
+	    if (channels[.EC.maf_g].supported && channels[.EC.rpm].supported) {
+		channels[.EC.hp].value <- maxHp.value * channels[.EC.maf_g].minMaxNormal;
+		channels[.EC.hp].supported = true;
+		channels[.EC.hp].min = vehicleProfiles[currentVehicleProfile].chanProf[.EC.hp].min;
+		channels[.EC.hp].max = vehicleProfiles[currentVehicleProfile].chanProf[.EC.hp].max;
+
+		channels[.EC.torque_nm].value <- channels[.EC.hp].value * 7122 / channels[.EC.rpm].value;
+		channels[.EC.torque_nm].supported = true;
+		channels[.EC.torque_nm].min = vehicleProfiles[currentVehicleProfile].chanProf[.EC.torque_nm].min;
+		channels[.EC.torque_nm].max = vehicleProfiles[currentVehicleProfile].chanProf[.EC.torque_nm].max;
+	    }
+	    state = 4; // We have setup dependent channels
+	}
+
+// 	script test when !test {
+// 	    printf("maxHp.fraction[%f] maxHp.value[%f] maf:minMaxNormal[%f]\n", maxHp.fraction, maxHp.value,  channels[.EC.maf_g].minMaxNormal);
+// 	    test <- @Timer { cycleInterval = 0.25 }.active;
+//	}
+	//
+	// Store all min/max values (if modified) every five seconds
+	//
+	script storeMinMax when !storeMinMax {
+	    int ind;
+	    foreach i in [0:size(channels)-1] {
+		*channels[i].minDB.store = true;
+		*channels[i].maxDB.store = true;
+	    }
+
+	    // Restart timer.
+	    storeMinMax <- @Timer { cycleInterval = 5.0 }.active;
+	    storeMinMax = true;
+	}
+
+
+	//
+	// Constructor.
+	//
+	script EngineBase {
+	    foreach i in [0 : .EC.count - 1] {
+		// Setup a basic engine channel with supported set to false.
+		channels[i] = @EngineChannel {
+		    descriptor = .EC.desc[i], // Tie to descriptor
+		    supported = false,
+		    index = i
+		};
+
+		//
+		// Setup a log channel.
+		// The colon will be used when log is read to extract
+		// channel name and unit type.
+		//
+		channels[i].logChannel = LogWriteChannel { 
+		    usage <- channels[i].usage, 
+		    name = sprintf("%s:%s", channels[i].descriptor.shortName, channels[i].descriptor.shortUnitType),
+		    value <- channels[i].value 
+		};
+
+		//
+		// Add the log channel to the log writer object.
+		//
+		logWriter.channels[size(logWriter.channels)] = channels[i].logChannel;
+	    }
+
+	    //
+	    // Setup the maxHpDB
+	    //
+	    foreach i in [0 : 160] {
+		maxHpDB[i] = @Pfloat { key = sprintf("engine.maxHp.%d", i * 50 + 2000), value = 0.0 };
+//		printf("maxHpDB[%d] = [%f]\n", i, maxHpDB[i].value);
+	    }
+	}
+    };
+    EngineBase engine = @EngineBase {};
+}

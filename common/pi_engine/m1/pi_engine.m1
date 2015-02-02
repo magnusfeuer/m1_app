@@ -1,0 +1,98 @@
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007, 2008.
+//
+
+library EngineLib {
+    //
+    // PiSys3Engine
+    //
+    type PiSys3Engine: PiSys3Device {
+	script PiSys3Engine {
+
+    
+	    .EngineBaseLib.engine.channels[.EC.vbat].supported = true;
+	    .EngineBaseLib.engine.channels[.EC.rpm].supported = true;
+	    .EngineBaseLib.engine.channels[.EC.kph].supported = true;
+	    .EngineBaseLib.engine.channels[.EC.fp_mbar].supported = true;
+	    .EngineBaseLib.engine.channels[.EC.map_mbar].supported = true;
+	    .EngineBaseLib.engine.channels[.EC.ect_c].supported = true;
+	    .EngineBaseLib.engine.channels[.EC.iat_c].supported= true;
+	    .EngineBaseLib.engine.channels[.EC.ign_adv].supported = true;
+	    .EngineBaseLib.engine.channels[.EC.atps].supported = true;
+	    .EngineBaseLib.engine.channels[.EC.lam_1_1_l].supported = true;
+	    .EngineBaseLib.engine.channels[.EC.lam_2_1_l].supported = true;
+	    .EngineBaseLib.engine.channels[.EC.bap_mbar].supported = true;
+
+	    //	.EngineBaseLib.engine.channels[.EC.hp].supported <- nil;
+	    //	.EngineBaseLib.engine.channels[.EC.torque_nm].supported <- nil
+	    //	.EngineBaseLib.engine.channels[.EC.gear].supported <- nil; // Todo - Tie in Torque calculator here.
+	    //	.EngineBaseLib.engine.channels[.EC.lp100k].supported <- nil; // Todo - Tie in fuel consumption calculator here.
+
+	    .EngineBaseLib.engine.channels[.EC.vbat].value <- vbat;
+	    .EngineBaseLib.engine.channels[.EC.rpm].value <- rpm; 	
+	    .EngineBaseLib.engine.channels[.EC.kph].value <- spd; 
+	    .EngineBaseLib.engine.channels[.EC.fp_mbar].value <- fp; 
+	    .EngineBaseLib.engine.channels[.EC.map_mbar].value <- map;
+	    .EngineBaseLib.engine.channels[.EC.ect_c].value <- ect;
+	    .EngineBaseLib.engine.channels[.EC.iat_c].value <- act;
+	    .EngineBaseLib.engine.channels[.EC.ign_adv].value <- sa;
+	    .EngineBaseLib.engine.channels[.EC.atps].value <- tps;
+	    .EngineBaseLib.engine.channels[.EC.lam_1_1_l].value <- lam1;
+	    .EngineBaseLib.engine.channels[.EC.lam_2_1_l].value <- lam2;
+	    .EngineBaseLib.engine.channels[.EC.bap_mbar].value <- bap;
+	    //	.EngineBaseLib.engine.channels[.EC.hp].value <- nil;
+	    //	.EngineBaseLib.engine.channels[.EC.torque_nm].value <- nil
+	    //	.EngineBaseLib.engine.channels[.EC.gear].value <- nil; // Todo - Tie in Torque calculator here.
+	    //	.EngineBaseLib.engine.channels[.EC.lp100k].value <- nil; // Todo - Tie in fuel consumption calculator here.
+
+	    .EngineBaseLib.engine.channels[.EC.vbat].min = 0;
+	    .EngineBaseLib.engine.channels[.EC.rpm].min = 0;
+	    .EngineBaseLib.engine.channels[.EC.kph].min = 0;
+	    .EngineBaseLib.engine.channels[.EC.fp_mbar].min = 0;
+	    .EngineBaseLib.engine.channels[.EC.map_mbar].min = 0;
+	    .EngineBaseLib.engine.channels[.EC.ect_c].min = -55;
+	    .EngineBaseLib.engine.channels[.EC.iat_c].min = -0;
+	    .EngineBaseLib.engine.channels[.EC.ign_adv].min = -90;
+	    .EngineBaseLib.engine.channels[.EC.atps].min = 0;
+	    .EngineBaseLib.engine.channels[.EC.lam_1_1_l].min = 0.0;
+	    .EngineBaseLib.engine.channels[.EC.lam_2_1_l].min = 0.0;
+	    .EngineBaseLib.engine.channels[.EC.bap_mbar].min = 600;
+	    //	.EngineBaseLib.engine.channels[.EC.hp].min <- nil;
+	    //	.EngineBaseLib.engine.channels[.EC.torque_nm].min <- nil
+	    //	.EngineBaseLib.engine.channels[.EC.gear].min <- nil; // Todo - Tie in Torque calculator here.
+	    //	.EngineBaseLib.engine.channels[.EC.lp100k].min <- nil; // Todo - Tie in fuel consumption calculator here.
+
+	    .EngineBaseLib.engine.channels[.EC.vbat].max = 20;
+	    .EngineBaseLib.engine.channels[.EC.rpm].max = 16000;
+	    .EngineBaseLib.engine.channels[.EC.kph].max = 250;
+	    .EngineBaseLib.engine.channels[.EC.fp_mbar].max = 12750;
+	    .EngineBaseLib.engine.channels[.EC.map_mbar].max = 5000;
+	    .EngineBaseLib.engine.channels[.EC.ect_c].max = 300;
+	    .EngineBaseLib.engine.channels[.EC.iat_c].max = 300;
+	    .EngineBaseLib.engine.channels[.EC.ign_adv].max = 90;
+	    .EngineBaseLib.engine.channels[.EC.atps].max = 100;
+	    .EngineBaseLib.engine.channels[.EC.lam_1_1_l].max = 2.0;
+	    .EngineBaseLib.engine.channels[.EC.lam_2_1_l].max = 2.0;
+	    .EngineBaseLib.engine.channels[.EC.bap_mbar].max = 1200;
+	    //	.EngineBaseLib.engine.channels[.EC.hp].max <- nil;
+	    //	.EngineBaseLib.engine.channels[.EC.torque_nm].max <- nil
+	    //	.EngineBaseLib.engine.channels[.EC.gear].max <- nil; // Todo - Tie in Torque calculator here.
+	    //	.EngineBaseLib.engine.channels[.EC.lp100k].max <- nil; // Todo - Tie in fuel consumption calculator here.
+
+	    // FAKE!
+	    .EngineBaseLib.engine.channels[.EC.maf_g].supported = true;
+	    .EngineBaseLib.engine.channels[.EC.maf_g].value <- ((.EngineBaseLib.engine.channels[.EC.rpm].value - 1000.0) / 7000.0) * (.EngineBaseLib.engine.channels[.EC.atps].value * 0.01) * 200.0;
+	    .EngineBaseLib.engine.channels[.EC.maf_g].min = 0.0;
+	    .EngineBaseLib.engine.channels[.EC.maf_g].max = 120.0;
+
+
+	    // Trigger that we have found the ECU and are ready for business. Should be fixed
+	    // so that it is triggered from the pi device drive.
+	    *.EngineBaseLib.engine.state = 3;
+	    *.EngineBaseLib.engine.setupDependentChannels = true;
+	}
+    };
+    PiSys3Engine device = @PiSys3Engine {};
+}

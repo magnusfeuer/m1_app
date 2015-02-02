@@ -1,0 +1,7 @@
+//
+// Just setup the source for the PiSYS3 stream
+//
+// Moved to pi_engine.m1
+.EngineLib.device.port = "launch/caterhamdump.pi3";
+.EngineLib.device.readInterval = 20000;
+

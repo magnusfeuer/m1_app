@@ -1,0 +1,214 @@
+// -*- c++ -*-
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+//
+// Master engine constant indexes used throughout the system.
+//
+library EC {
+    //
+    // Descriptor of a single channel.
+    //
+    type Descriptor {
+	string shortName;
+	string name;
+	string shortUnitType;
+	string unitType;
+	float  updateInterval = 0.5; // How often we should update the gauge.
+    };
+
+    //
+    // See m1/core/trunk/README/add_channel.txt for instructions on adding channels.
+    //
+    int rpm = 0;
+    int map_mbar = 1;
+    int map_psi = 2;
+    int map_mbarcm = 3;
+    int map_psiin = 4;
+    int kph = 5;
+    int mph = 6;
+    int trim_1 = 7;
+    int trim_2 = 8;
+    int lam_1_1_l = 9; //  lambda
+    int lam_1_1_a = 10;   // afr ratio
+    int lam_1_1_v = 11;   // volt
+    int lam_1_2_l = 12;
+    int lam_1_2_a = 13;
+    int lam_1_2_v = 14;
+    int lam_2_1_l = 15;
+    int lam_2_1_a = 16;
+    int lam_2_1_v = 17;
+    int lam_2_2_l = 18;
+    int lam_2_2_a = 19;
+    int lam_2_2_v = 20;
+    int load  = 21;
+    int ect_c = 22;
+    int ect_f = 23;
+    int iat_c = 24;
+    int iat_f = 25;
+    int aat_c = 26;
+    int aat_f = 27;
+    int eot_c = 28;
+    int eot_f  = 29;
+    int vbat = 30;
+    int ign_adv = 31; 
+    int maf_g = 32;
+    int maf_o = 33;  
+    int atps = 34;   // Absolute tps. Raw value read from ECU
+    int rtps = 35; // Normalized TPS 0-100% based on min/max values seen.
+    int fp_mbar = 36;
+    int fp_psi = 37;
+    int fuel_lev  = 38;
+    int bap_mbar = 39;
+    int bap_psi = 40;
+    int hp =41; 
+    int torque_nm = 42;
+    int torque_lbft = 43; 
+    int gear = 44;
+    int lp100k = 45; // Litres per 100 km. = ;
+    int mpg = 46;      
+    int gforce = 47; // in milliG = ;
+    int eop_mbar = 48; // Engine oil pressure mbar
+    int eop_psi = 49; // Engine oil pressure psi
+    int egt1_c = 50; // Exhaust gas temp C
+    int egt1_f = 51; // Exhaust gas temp F
+    int egt2_c = 52; // Exhaust gas temp C
+    int egt2_f = 53; // Exhaust gas temp F
+    int egt3_c = 54; // Exhaust gas temp C
+    int egt3_f = 55; // Exhaust gas temp F
+    int egt4_c = 56; // Exhaust gas temp C
+    int egt4_f = 57; // Exhaust gas temp F
+    int egt5_c = 58; // Exhaust gas temp C
+    int egt5_f = 59; // Exhaust gas temp F
+    int egt6_c = 60; // Exhaust gas temp C
+    int egt6_f = 61; // Exhaust gas temp F
+    int egt7_c = 62; // Exhaust gas temp C
+    int egt7_f = 63; // Exhaust gas temp F
+    int egt8_c = 64; // Exhaust gas temp C
+    int egt8_f = 65; // Exhaust gas temp F
+    int bip_mbar = 66; // Pre-intercoler pressure.
+    int bip_psi = 67; // Pre-intercoler pressure.
+    int aip_mbar = 68; // Post-intercooler pressure.
+    int aip_psi = 69; // Post-intercooler pressure.
+    int ccp_mbar = 70; // Crank case pressure.
+    int ccp_psi = 71; // Crank case pressure.
+    int wp_mbar = 72; // Water pressure
+    int wp_psi = 73; // Water pressure
+    int fdt_c = 74; // Front Diff Temp
+    int fdt_f = 75; // Front Diff Temp
+    int rdt_c = 76; // Rear Diff Temp
+    int rdt_f = 77; // Rear Diff Temp
+    int cdt_c = 78; // Center Diff Temp
+    int cdt_f = 79; // Center Diff Temp
+    int gbt_c = 80; // Gear box temp
+    int gbt_f = 81; // Gear box temp
+    int bit_c = 82; // Before Intercooler temp.
+    int bit_f = 83; // Before Intercooler temp.
+    int ait_c = 84; // After Intercooler temp.
+    int ait_f = 85; // AFter Intercooler temp.
+    int ft_c = 86; // Fuel temp
+    int ft_f = 87; // Fuel temp.
+    int latency = 88; // ECU response time
+    int fpw = 89; // Fuel pulse width in msec
+    int wgdt = 90; // Waste gate duty cycle
+    int ebp = 91; // Exhaust Back Pressure
+    int count = 90; // Nr of channels we manage
+    
+
+    Descriptor desc[] = {
+	Descriptor { shortName = "RPM", name = "rpm", unitType = "", shortUnitType = "" }, // 0  M
+	Descriptor { shortName = "MAP", name = "manifold press", unitType = "mbar", shortUnitType = "MBAR" }, // 1 M
+	Descriptor { shortName = "MAP", name = "manifold press", unitType = "psi", shortUnitType = "PSI" }, // 2 M
+	Descriptor { shortName = "MAP", name = "manifold press", unitType = "cm/mbar", shortUnitType = "CM/MBAR" }, // 3 M
+	Descriptor { shortName = "MAP", name = "manifold press", unitType = "in/psi", shortUnitType = "IN/PSI" }, // 4 M
+	Descriptor { shortName = "SPD", name = "speed", unitType = "km per hour", shortUnitType = "KPH", updateInterval = 2.0 }, // 5 Mn
+	Descriptor { shortName = "SPD", name = "speed", unitType = "miles per hour", shortUnitType = "MPH", updateInterval = 2.0 }, // 6  M
+	Descriptor { shortName = "TRIM 1", name = "fuel trim 1", unitType = "percent", shortUnitType = "%" }, // 7 
+	Descriptor { shortName = "TRIM 2", name = "fuel trim 2", unitType = "percent", shortUnitType = "%" }, // 8 
+	Descriptor { shortName = "O2 1", name = "O2 sensor 1", unitType = "lambda", shortUnitType = "LAM" }, // 9 
+	Descriptor { shortName = "O2 1", name = "O2 sensor 1", unitType = "afr", shortUnitType = "AFR" }, // 10 
+	Descriptor { shortName = "O2 1", name = "O2 sens volt 1", unitType = "volt", shortUnitType = "V" }, // 11 
+	Descriptor { shortName = "O2 2", name = "O2 sensor 2", unitType = "lambda", shortUnitType = "LAM" }, // 12
+	Descriptor { shortName = "O2 2", name = "O2 sensor 2", unitType = "afr", shortUnitType = "AFR" }, // 13 
+	Descriptor { shortName = "O2 2", name = "O2 sens volt 2", unitType = "volt", shortUnitType = "V" }, // 14 
+	Descriptor { shortName = "O2 3", name = "O2 sensor 3", unitType = "lambda", shortUnitType = "LAM" }, // 15 
+	Descriptor { shortName = "O2 3", name = "O2 sensor 3", unitType = "afr", shortUnitType = "AFR" }, // 16 
+	Descriptor { shortName = "O2 3", name = "O2 sens volt 3", unitType = "volt", shortUnitType = "V" }, // 17 
+	Descriptor { shortName = "O2 4", name = "O2 sensor 4", unitType = "lambda", shortUnitType = "LAM" }, // 18 
+	Descriptor { shortName = "O2 4", name = "O2 sensor 4", unitType = "afr", shortUnitType = "AFR" }, // 19 
+	Descriptor { shortName = "O2 4", name = "O2 sens volt 4", unitType = "volt", shortUnitType = "V" }, // 20 
+	Descriptor { shortName = "LOAD", name = "load", unitType = "percent", shortUnitType = "%" }, // 21 
+	Descriptor { shortName = "ECT", name = "eng cool temp", unitType = "celsius", shortUnitType = "C" }, // 22 M
+	Descriptor { shortName = "ECT", name = "eng cool temp", unitType = "fahrenheit", shortUnitType = "F" }, // 23 M
+	Descriptor { shortName = "IAT", name = "intake air temp", unitType = "celsius", shortUnitType = "C" }, // 24 M
+	Descriptor { shortName = "IAT", name = "intake air temp", unitType = "fahrenheit", shortUnitType = "F" }, // 25 M
+	Descriptor { shortName = "AAT", name = "air temp", unitType = "celsius", shortUnitType = "C" }, // 26 
+	Descriptor { shortName = "AAT", name = "air temp", unitType = "fahrenheit", shortUnitType = "F" }, // 27 
+	Descriptor { shortName = "EOT", name = "oil temp", unitType = "celsius", shortUnitType = "C" }, // 28 
+	Descriptor { shortName = "EOT", name = "oil temp", unitType = "fahrenheit", shortUnitType = "F" }, // 29 
+	Descriptor { shortName = "BAT", name = "battery", unitType = "volt", shortUnitType = "V" }, // 30 M
+	Descriptor { shortName = "IGN", name = "ignition timing", unitType = "degrees", shortUnitType = "DEG", updateInterval = 1.0 }, // 31 
+	Descriptor { shortName = "MAF", name = "mass airflow", unitType = "grams/second", shortUnitType = "GR/SEC" }, // 32 M
+	Descriptor { shortName = "MAF", name = "mass airflow", unitType = "ounce/sec", shortUnitType = "OZ/SEC" }, // 33 M
+	Descriptor { shortName = "ATPS", name = "throttle pos", unitType = "absolute", shortUnitType = "%" }, // 34 M
+	Descriptor { shortName = "RTPS", name = "throttle pos", unitType = "relative", shortUnitType = "%" }, // 35
+	Descriptor { shortName = "FP", name = "fuel press", unitType = "millibar", shortUnitType = "MBAR" }, // 36 M
+	Descriptor { shortName = "FP", name = "fuel press", unitType = "psi", shortUnitType = "PSI" }, // 37 M
+	Descriptor { shortName = "FUEL", name = "fuel level", unitType = "percent", shortUnitType = "%" }, // 38 
+	Descriptor { shortName = "BAP", name = "baro press", unitType = "millibar", shortUnitType = "MBAR" }, // 39
+	Descriptor { shortName = "BAP", name = "baro press", unitType = "psi", shortUnitType = "PSI" }, // 40 
+	Descriptor { shortName = "DHP", name = "dynamic hp", unitType = "dhp", shortUnitType = "" }, // 41 
+	Descriptor { shortName = "DTRQ", name = "dynamic torque", unitType = "newton meter", shortUnitType = "NM" }, // 42
+	Descriptor { shortName = "DTRQ", name = "dynamic torque", unitType = "foot pound", shortUnitType = "LBFT" }, // 43 
+	Descriptor { shortName = "GEAR", name = "gear pos", unitType = "", shortUnitType = "" }, // 44 
+	Descriptor { shortName = "L100K", name = "liters per 100km", unitType = "liter/km", shortUnitType = "L/100KM" }, // 45
+	Descriptor { shortName = "MPG", name = "miles/gallon", unitType = "miles/gallon", shortUnitType = "", updateInterval = 10.0 }, // 46
+	Descriptor { shortName = "G-FRC", name = "g-force", unitType = "milli-g", shortUnitType = "MG", updateInterval = 0.8 }, // 47
+	Descriptor { shortName = "EOP", name = "eng oil press", unitType = "millibar", shortUnitType = "MBAR" }, // 48
+	Descriptor { shortName = "EOP", name = "eng oil press", unitType = "psi", shortUnitType = "PSI" }, // 49
+	Descriptor { shortName = "EGT1", name = "exhst temp 1", unitType = "celsius", shortUnitType = "C" }, // 50
+	Descriptor { shortName = "EGT1", name = "exhst temp 1", unitType = "fahrenheit", shortUnitType = "F" }, // 51
+	Descriptor { shortName = "EGT2", name = "exhst temp 2", unitType = "celsius", shortUnitType = "C" }, // 52 
+	Descriptor { shortName = "EGT2", name = "exhst temp 2", unitType = "fahrenheit", shortUnitType = "F" }, // 53
+	Descriptor { shortName = "EGT3", name = "exhst temp 3", unitType = "celsius", shortUnitType = "C" }, // 54
+	Descriptor { shortName = "EGT3", name = "exhst temp 3", unitType = "fahrenheit", shortUnitType = "F" }, // 55 
+	Descriptor { shortName = "EGT4", name = "exhst temp 4", unitType = "celsius", shortUnitType = "C" }, // 56
+	Descriptor { shortName = "EGT4", name = "exhst temp 4", unitType = "fahrenheit", shortUnitType = "F" }, // 57 
+	Descriptor { shortName = "EGT5", name = "exhst temp 5", unitType = "celsius", shortUnitType = "C" }, // 58
+	Descriptor { shortName = "EGT5", name = "exhst temp 5", unitType = "fahrenheit", shortUnitType = "F" }, // 59
+	Descriptor { shortName = "EGT6", name = "exhst temp 6", unitType = "celsius", shortUnitType = "C" }, //60
+	Descriptor { shortName = "EGT6", name = "exhst temp 6", unitType = "fahrenheit", shortUnitType = "F" }, // 61
+	Descriptor { shortName = "EGT7", name = "exhst temp 7", unitType = "celsius", shortUnitType = "C" }, // 62
+	Descriptor { shortName = "EGT7", name = "exhst temp 7", unitType = "fahrenheit", shortUnitType = "F" }, // 63
+	Descriptor { shortName = "EGT8", name = "exhst temp 8", unitType = "celsius", shortUnitType = "C" }, // 64
+	Descriptor { shortName = "EGT8", name = "exhst temp 8", unitType = "fahrenheit", shortUnitType = "F" }, // 65
+	Descriptor { shortName = "BIP", name = "pre ic press", unitType = "millibar", shortUnitType = "MBAR" }, // 66 
+	Descriptor { shortName = "BIP", name = "pre ic press", unitType = "in/psi", shortUnitType = "IN/PSI" }, // 67
+	Descriptor { shortName = "AIP", name = "post ic press", unitType = "millibar", shortUnitType = "MBAR" }, // 68
+	Descriptor { shortName = "AIP", name = "post ic press", unitType = "in/psi", shortUnitType = "IN/PSI" }, // 69
+	Descriptor { shortName = "CCP", name = "cnk case press", unitType = "millibar", shortUnitType = "MBAR" }, // 70
+	Descriptor { shortName = "CCP", name = "cnk case press", unitType = "psi", shortUnitType = "PSI" }, // 71
+	Descriptor { shortName = "WP", name = "water press", unitType = "millibar", shortUnitType = "MBAR" }, // 72
+	Descriptor { shortName = "WP", name = "water press", unitType = "psi", shortUnitType = "PSI" }, // 73
+	Descriptor { shortName = "FDT", name = "frnt diff temp", unitType = "celsius", shortUnitType = "C" }, // 74
+	Descriptor { shortName = "FDT", name = "frnt diff temp", unitType = "fahrenheit", shortUnitType = "F" }, // 75
+	Descriptor { shortName = "RDT", name = "rear diff temp", unitType = "celsius", shortUnitType = "C" }, // 76
+	Descriptor { shortName = "RDT", name = "rear diff temp", unitType = "fahrenheit", shortUnitType = "F" }, // 77 
+	Descriptor { shortName = "CDT", name = "cntr diff temp", unitType = "celsius", shortUnitType = "C" }, // 78 
+	Descriptor { shortName = "CDT", name = "cntr diff temp", unitType = "fahrenheit", shortUnitType = "F" }, // 79 
+	Descriptor { shortName = "GBT", name = "gbox temp", unitType = "celsius", shortUnitType = "C" }, // 80
+	Descriptor { shortName = "GBT", name = "gbox temp", unitType = "fahrenheit", shortUnitType = "F" }, // 81
+	Descriptor { shortName = "BIT", name = "pre ic temp", unitType = "celsius", shortUnitType = "C" }, // 82
+	Descriptor { shortName = "BIT", name = "pre ic temp", unitType = "fahrenheit", shortUnitType = "F" }, // 83
+	Descriptor { shortName = "AIT", name = "post ic temp", unitType = "celsius", shortUnitType = "C" }, // 84
+	Descriptor { shortName = "AIT", name = "post ic temp", unitType = "fahrenheit", shortUnitType = "F" }, // 85
+	Descriptor { shortName = "FT", name = "fuel temp", unitType = "celsius", shortUnitType = "C" }, // 86
+	Descriptor { shortName = "FT", name = "fuel temp", unitType = "fahrenheit", shortUnitType = "F" }, // 87
+	Descriptor { shortName = "LTCY", name = "ecu latency", unitType = "seconds", shortUnitType = "S" }, // 88
+	Descriptor { shortName = "FPW", name = "inj pulse width", unitType = "msec", shortUnitType = "MSEC" }, // 89
+	Descriptor { shortName = "WGDC", name = "wastegate dty c", unitType = "%", shortUnitType = "%" }, // 90
+	Descriptor { shortName = "EBP", name = "exhst bck press", unitType = "mbar", shortUnitType = "mbar" } // 91
+    };
+}

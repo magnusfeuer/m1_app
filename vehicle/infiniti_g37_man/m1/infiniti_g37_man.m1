@@ -1,0 +1,46 @@
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+//
+// Add a Infiniti G37 application
+//
+int ind = size(.EngineBaseLib.engine.vehicleProfiles);
+
+type InfinitiG37AutoProfile: :EngineBaseLib:VehicleProfile {
+    make = "Infiniti";
+    model = "G37";
+    startYear = 2008;
+    stopYear = 0; // current
+    gearType = 3; // Tiptronic.
+    curbWeight = 1723; // Curb weight + driver. kg
+    length = 465; // Cm
+    width = 182;
+    height = 140;
+    wheelBase = 0;
+    displacement = 370; // cubic centimetres. 
+    imageFile = "dds/infiniti_g37.png";
+    obdIIProtocol = 0;
+
+    gearCount = 6;
+    cylinders = 6;
+    cylinderConfig = 2; // V engine.
+
+    chanProf[.EC.rpm].max = 9000; 
+    chanProf[.EC.rpm].maxWarn = 7250;    
+    chanProf[.EC.rpm].maxCritical = 7500;   
+
+    tireWidth = 225;
+    tireSidewallRatio = 50;
+    tireRimDiameter = 18;
+
+};
+
+.EngineBaseLib.engine.vehicleProfiles[ind] = @InfinitiG37AutoProfile {};
+
+
+// Init current vehicle profile if necessary.
+if (.EngineBaseLib.engine.currentVehicleProfile == -1)
+    .EngineBaseLib.engine.currentVehicleProfile = 0;

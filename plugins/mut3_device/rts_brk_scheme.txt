@@ -1,0 +1,27 @@
+EvoScan cable characteristics.
+
+PIN 7 - K LINE
+
+IOCTL_DTR(break)   IOCTL_RTS     PIN volt         xmit 0x00      xmit 0xFF
+     0                  0          14             no reaction    no reaction
+     1                  0          0              no reaction    no reaction
+     1                  1          14             0 volt         13 volt
+     0                  1          14             0 volt         13 volt
+
+--------------------
+
+PIN 15 - L Line
+
+IOCTL_DTR(break)   IOCTL_RTS     PIN volt         xmit 0x00      xmit 0xFF
+     0                  0          14             0 volt         13 volt
+     1                  0          14             0 volt         13 volt
+     1                  1          0              no reaction    no reaction
+     0                  1          14             no reaction    no reaction
+
+
+Conclusion.
+RTS high enables K-line/disables L-line
+RTS low  enables L-line/disables K-line
+
+To set break. Disable line and set break.
+To send break over K-line. 

@@ -1,0 +1,43 @@
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+//
+// Add a Mazda RX8
+//
+int ind = size(.EngineBaseLib.engine.vehicleProfiles);
+
+type MazdaRX8: :EngineBaseLib:VehicleProfile {
+    make = "Mazda";
+    model = "RX-8";
+    imageFile = "dds/mazda_rx8.png";
+    startYear = 2006;
+    stopYear = 0; // Unknown.
+    gearType = 1; // manual
+    curbWeight = 1485 ; // Curb weight + driver in kg
+    length = 446; // In cm.
+    width = 177;
+    height = 134;
+    wheelBase = 0;
+    displacement = 130; // cubic centimetres. 
+    cylinders = 0; // Rotary
+    cylinderConfig = 5; // Rotary
+    obdIIProtocol = 0; // ISO9141 preset does not yet work.
+
+    gearCount = 6;
+    tireWidth = 225;
+    tireSidewallRatio = 40;
+    tireRimDiameter = 19;
+
+    chanProf[.EC.rpm].max = 10000;    
+    chanProf[.EC.rpm].maxWarn = 8750;    
+    chanProf[.EC.rpm].maxCritical = 9000;   
+};
+
+.EngineBaseLib.engine.vehicleProfiles[ind] = @MazdaRX8 {};
+
+if (.EngineBaseLib.engine.currentVehicleProfile == -1)
+    .EngineBaseLib.engine.currentVehicleProfile = 0;
+

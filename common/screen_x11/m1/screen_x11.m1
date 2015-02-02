@@ -1,0 +1,139 @@
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+//
+// Device definition for a specific platform.
+//
+
+library ScreenLib {
+     event time sample <-
+	 @Timer { cycleInterval = 1.0, loop = true }.cycleTime;
+
+     Float fpsLayer = @Float { top = 0, left = 0,
+ 			      value = 0,
+			       fontName = "BankGothic Md BT",
+ 			      fontSize = 12,
+ 			      fontWeight = medium,
+ 			      fontColor = 0xFFFFFF,
+ 			      background = true,
+ 			      format = "FPS: %.2f" };
+
+    Pbool swapXY = Pbool { key = "core.touch_screen.swap_xy", value = false };
+    Pbool invertX = Pbool { key = "core.touch_screen.invert_x", value = false };
+    Pbool invertY = Pbool { key = "core.touch_screen.invert_y", value = false };
+
+    Psigned minX = Psigned { key = "core.touch_screen.min_x", value = 0 };
+    Psigned maxX = Psigned { key = "core.touch_screen.max_x", value = 640 };
+    Psigned minY = Psigned { key = "core.touch_screen.min_y", value = 0 };
+    Psigned maxY = Psigned { key = "core.touch_screen.max_y", value = 480 };
+
+    event time stop_record <- @Timer { cycleInterval = 20.0 }.cycleTime;
+
+    type Resolution {
+	string label;
+	string aspectRatio;
+	bool tvOut = false;
+	bool vgaOut = false;
+	bool dviOut = false;
+	float xRes;  // Horizontal resolution in pixels
+	float yRes;  // Vertical resolution in pixels.
+	event bool wideScreen = false;
+	event int realXRes;
+	event int realYRes;
+	event int pixClock = 0; // Pixclock
+	event int leftMargin = 0; // left margin
+	event int rightMargin = 0; // right margin
+	event int upperMargin = 0; // upper margin
+	event int lowerMargin = 0; // lower margin
+	event int hSyncLen = 0; // hSyncLen
+	event int vSyncLen = 0; // vSyncLen
+	event int vMode = 0; // mode
+	event int sync = 0; // sync
+    };
+
+    //
+    // The resolution supported by this screen. 
+    //
+    Resolution resolution[] = {
+	// Index 0 - 640x480
+	@Resolution { label = "640x480 First", aspectRatio = "6:4", vgaOut = true, xRes = 640, yRes = 480, realXRes = 640, realYRes = 480 },
+	// Index 1 - 800x480
+	@Resolution {  label = "800x480 First", aspectRatio = "16:9", vgaOut = true, xRes = 800, yRes = 480, realXRes = 800, realYRes = 480, wideScreen = true },
+	// Index 0 - 640x480
+	@Resolution { label = "640x480 Second ", aspectRatio = "6:4", vgaOut = true, xRes = 640, yRes = 480, realXRes = 800, realYRes = 480 },
+	// Index 1 - 800x480
+	@Resolution {  label = "vga 75hz", aspectRatio = "16:9", vgaOut = true, xRes = 800, yRes = 480, realXRes = 800, realYRes = 480, wideScreen = true }
+    };
+
+    // Current resolution index into resolui
+    Psigned currentResDB = Psigned { key = "core.screen.res_ind", value = 0 };
+
+    event int _res_updated <- currentResDB.value;
+    event float xRes = @float(resolution[currentResDB.value].xRes);
+    event float yRes = @float(resolution[currentResDB.value].yRes);
+    event float realXRes = @float(resolution[currentResDB.value].realXRes);
+    event float realYRes = @float(resolution[currentResDB.value].realYRes);
+    event bool wideScreen = resolution[currentResDB.value].wideScreen;
+
+    //
+    // Constructor code. 
+    // Setup the core screen and input devices.,
+    //
+    Screen screen =  Screen { 
+	width  <- realXRes,
+	height <- realYRes,
+	pixelType = "bgra",
+	backendType = (getenv("M1_BACKEND")=="") ? "x11" : getenv("M1_BACKEND"),
+	wantFocus = true,
+ 	frameRate = 75,
+//           	recorder = @Video { 
+//         	    top = 0, left = 0, width = 640, height = 480, 
+//           	    mode = out, enabled = true, streamName = "menu_tst.mpg" 
+//           	},
+	children = { }
+    };
+
+//
+// Setup a top level strategy that works directly on the screen.
+//
+    InputStrategy inputStrategy = InputStrategy { layer = screen };
+
+    EpicInputDevice touchscreen = EpicInputDevice {
+ 	inputStrategy = inputStrategy,
+ 	screen = screen, // Used to extract mouse
+ 	maxUnscaledX <- maxX.value,
+ 	maxUnscaledY <- maxY.value,
+ 	minUnscaledX <- minX.value,
+ 	minUnscaledY <- minY.value,
+ 	invertX <- invertX.value,
+ 	invertY <- invertY.value,
+ 	scaledWidth <- realXRes,
+ 	scaledHeight <- realYRes,
+ 	swapXY <- swapXY.value
+    };
+
+    script stop_record {
+//	printf("Recording stopped\n");
+//	.M1.halt = true;
+	if (screen.recorder != nil)
+	    screen.recorder.enabled = false;
+    }
+
+    // script for updating the fps counter
+     script sample {
+         fpsLayer.value =  .M1.fps;
+//	 printf("fps[%f]\n", .M1.fps);
+     }
+
+    script _res_updated {
+	xRes = @float(resolution[currentResDB.value].xRes);
+	yRes = @float(resolution[currentResDB.value].yRes);
+	realXRes = @float(resolution[currentResDB.value].realXRes);
+	realYRes = @float(resolution[currentResDB.value].realYRes);
+	wideScreen = resolution[currentResDB.value].wideScreen;
+    }
+
+}

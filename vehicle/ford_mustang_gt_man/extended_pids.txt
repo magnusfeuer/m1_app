@@ -1,0 +1,130 @@
+ ord	PID	List
+Acronym	PID	#	Description Ford	Units
+4X4L	1101	b2	Requested 4 Wheel Drive Input	ON/OFF
+ACCS	1101	b0	Air   Conditioning Cycling Switch Input ON/OFF
+ACP	1102	b0	A/C Head Pressure Switch Input	OPEN/CLOSED
+ACPV	1638	all	A/C Head Pressure Switch Input	VOLTS
+AIR	1104	b4	Secondary AIR Pump Control	ON/OFF
+AIRM	110C	b1	Secondary AIR Pump Monitor	ON/OFF
+BARO	1127	all	Barometric Pressure (may be software determined)	Hz
+BPP/BOO	1101	b1	Brake Pedal Position/Brake On-Off Switch Input	ON/OFF
+CAMDCR	16CF	all	Commanded Duty Cycle for VCT Solenoid	%
+CAMERRR	16CE	all	VCT Error in Crankshaft Degrees	DEGREES
+CASGND	16CO	all	PCM Case Ground	VOLTS
+CCS	1105	b7	Coast Clutch Solenoid Control	ON/OFF
+CHT	1624	all	Cylinder Head Temperature Input	DEGREES
+CHTV	1685	all	Cylinder Head Temperature Input	VOLTS
+CPP/PNP	1101	b3	Clutch Pedal/Park Neutral Position Switch Input	ON/OFF
+DPFEGR	114E	all	Differential Pressure Feedback EGR Input	VOLTS
+ECT	1139	all	Engine Coolant Temperature Input	DEGREES
+ECTV	114D	all	Engine Coolant Temperature Input	VOLTS
+EFTA	168E	all	Engine Fuel Temperature - Bank 1 Input	DEGREES
+EFTAV	168D	all	Engine Fuel Temperature - Bank 1 Input	VOLTS
+EFTB	169O	all	Engine Fuel Temperature - Bank 2 Input	DEGREES
+EFTBV	168F	all	Engine Fuel Temperature - Bank 2 Input	VOLTS
+EGRVR	113C	all	EGR Valve Vacuum Control	%
+EOT	1310	all	Engine Oil Temperature Sensor Input	DEGREES
+EOTV	16AF	all	Engine Oil Temperature Sensor Input	VOLTS
+EOTF	16A9	all	Engine Oil Temperature Fault Detection	YES/NO
+EPC	11C0	all	Transmission Line Pressure Control	PSI
+EPCV	11B2	all	Transmission Line Pressure Control	VOLTS
+EVAPCPF	162F	b2	Evaporative Emissions Canister Purge Fault	YES/NO
+EVAPCV	1167	all	Evaporative Emissions Canister Purge Vent Control	%
+EVAPCVF	1630	b3	Evaporative Emissions Canister Purge Vent Fault	YES/NO
+EVAPPDC	1166	all	Evaporative Emissions Canister Purge Control	%
+EVAPPF	1627	all	Evaporative Purge Flow Input	VOLTS
+EVAPVMA	1636	all	Evaporative Vapor Management Valve Internal Circuit Monitor VOLTS
+FF	16AB	all	Flex Fuel Sensor Input	%
+FLI	16C1	all	Fuel Level Indicator Input	%
+FLIV	16BF	all	Fuel Level Indicator Input	VOLTS
+FPM	1673	all	Fuel Pump Secondary Monitor	%
+FPF	162E	b6	Fuel Pump Output Fault YES/NO
+FPM	110C	b0	Fuel Pump Secondary Monitor	ON/OFF
+FRP	168C	all	Engine Injector Pressure Input	PSI
+FRPV	168B	all	Engine Injector Pressure Input	VOLTS
+FSVF	1691	b1	Engine Fuel Solenoid Valve Fault	YES/NO
+FSVM	1691	b2	Engine Fuel Solenoid Valve Secondary Monitor	ON/OFF
+FTP	1687	all	Fuel Tank Pressure Input in.H2O
+FTPV	1639	all	Fuel Tank Pressure Input	VOLTS
+FUELPW1	1141	all	Injector Pulse Width Bank 1	MILLISECONDS
+FUELPW2	1142	all	Injector Pulse Width Bank 2	MILLISECONDS
+GEAR	11B3	all	Transmission Gear Status	GEAR
+GENF	0927	b2	Generator Output Fault Detection	YES/NO
+GENFDC	16E8	all	Generator Field Control Output	%
+GFS	0939	all	Generator Field Signal Monitor	%
+HFC	1103	b3	High Speed Fan Control	ON/OFF
+HFCF	162F	b1	High Speed Fan Control Fault	YES/NO
+HTR11	1631	b0	Bank 1 Upstream O2S Heater Control	ON/OFF
+HTR11F	1631	b4	Bank 1 Upstream O2S Heater Circuit	Fault	ON/OFF
+HTR12	1631	b1	Bank 1 Downstream O2S Heater Control	ON/OFF
+HTR12F	1631	b5	Bank 1 Downstream O2S Heater Circuit Fault	ON/OFF
+HTR21	1631	b2	Bank 2 Upstream O2S Heater Control	ON/OFF
+HTR21F	1631	b6	Bank 1 Downstream O2S Heater Circuit Fault	ON/OFF
+HTR22	1631	b3	Bank 2 Downstream O2S Heater Control	ON/OFF
+HTR22F	1631	b7	Bank 1 Downstream O2S Heater Circuit Fault	ON/OFF
+HTRX1	1102	b1/6	O2S Upstream Heater Control	ON/OFF
+HTRX2	1102	b2/7	O2S Downstream Heater Control	ON/OFF
+IAC	1153	all	Idle Air Control	%
+IAT	1123	all	Intake Air Temperature Input	DEGREES
+IATV	114A	all	Intake Air Temperature Input	VOLTS
+IAT2	16A8	all	Intake Air Temperature Sensor 2 Input	DEGREES
+IAT2V	16A7	all	Intake Air Temperature Sensor 2 Input	VOLTS
+IMRC	1103	b4	Intake Manifold Runner Control	ON/OFF
+IMRCF	162F	b6	Intake Manifold Runner Control Fault	YES/NO
+IMRCM	1634	all	Intake Manifold Runner Control Monitor Input Bank 1	VOLTS
+IMTV	1684	all	Intake Manifold Tuning Valve Control	%
+IMTVF	162F	b5	Intake Manifold Tuning Valve Fault	YES/NO
+INJ1F-8F	162D	b0-7	Fuel Injector Primary Fault	YES/NO
+INJ9F-10F	16EA	b0-1	Fuel Injector Primary Fault	YES/NO
+KS1V	16E6	all	Knock Sensor Input Bank 1	VOLTS
+KS2V	16E7	all	Knock Sensor Input Bank 2	VOLTS
+LFC	1103	b2	Low Speed Fan Control	ON/OFF
+LFCF	162F	b0	Low Speed Fan Control Fault	YES/NO
+LONGFT1	1156	all	Long Term Fuel Trim Bank 1	%
+LONGFT2	1157	all	Long Term Fuel Trim Bank 2	%
+MAF	1671	all	Mass Airflow Rate Input GM/S
+MAFV	1177	all	Mass Airflow Rate Input	VOLTS
+MAFV	1633	all	Mass Airflow Rate Input	VOLTS
+MIL	1103	b5	Malfunction Indicator Lamp Control	ON/OFF
+MPLRNa	16DD	b0	Misfire Wheel Profile Learned in KAM	YES/NO
+OCTADJ	1102	b3	Octane Adjust Status	OPEN/CLOSED
+OCTADJS	16EF	b0	Octane Adjust Software Status RETARD/NO RETARD ??
+O2S11	1173	all	Bank 1 Upstream O2S Input	VOLTS
+O2S12	1174	all	Bank 1 Downstream O2S Input	VOLTS
+O2S21	1175	all	Bank 2 Upstream O2S Input	VOLTS
+O2S22	1176	all	Bank 2 Downstream O2S Input	VOLTS
+PIP	1102	b4	Profile Ignition Pickup Input	ON/OFF
+PSP	1101	b7	Power Steering Pressure Switch Input	HIGH/LOW
+PSPV	1626	all	Power Steering Pressure Input	VOLTS
+PSPV	1625	all	Power Steering Pressure Input	VOLTS
+PTO	160D	b5	Power Take Off Status Input	ON/OFF
+RCAM	16CD	all	VCT Solenoid Commanded in Crank Shaft Degrees	DEGREES
+REV	1697	b0	Transmission Reverse Switch Input	ON/OFF
+RPM	1165	all	Engine Speed Based Upon CKP Input	RPM
+SCB	0964	b0	Supercharger Bypass Control	ON/OFF
+SCBF	0964	b1	Supercharger Bypass Control Fault	YES/NO
+SCICP	0964	b2	Supercharger Intercooler Pump Control	ON/OFF
+SCICPF	0964	b3	Supercharger Intercooler Pump Control Fault	YES/NO
+SS1	1105	b4	Shift Solenoid 1 Control	ON/OFF
+SS2	1105	b5	Shift Solenoid 2 Control	ON/OFF
+SS3	1105	b6	Shift Solenoid 3 Control	ON/OFF
+TCC	11B0	all	Torque Converter Clutch Control	%
+TCCA	110E	b7	Torque Converter Clutch Control Internal Circuit Monitor	ON/OFF
+TCIL	1104	b2	Transmission Control Indicator Lamp Clutch Control Status	ON/OFF
+TCS	1101	b4	Transmission Clutch Convertor Control Switch Input	ON/OFF
+TFT	1674	all	Transmission Fluid Temperature Input	DEGREES
+TFTV	11BD	all	Transmission Fluid Temperature Input	VOLTS
+TP	MODE	1125	Throttle Position Mode C/T,P/T,	WOT
+TPV	1154	all	Throttle Position Input	VOLTS
+TPB	1629	all	Secondary Throttle Position Input	VOLTS
+TPREL	1169	all	Lowest Steady TP Voltage Since Engine Start (RATCH)	VOLTS
+TR	11B6	all	Transmission Selector Position Input Status	POSITION
+TRV	1151	all	Transmission Selector Position Input Status	VOLTS
+TRD	16B5	all	Transmission Selector Position Input Status (Digital)	BINARY
+TSS/ISS	11B4	all	Turbine Shaft Speed/Input Shaft Speed	RPM
+VCTA	16B1	b6	VCT Control Circuit Monitor	ON/OFF
+VCTENA	16B1	b5	Conditions Correct to Enable VCT	YES/NO
+VPWR	1172	all	Vehicle Power Voltage	VOLTS
+VREF	1155	all	Vehicle Reference Voltage	VOLTS
+WAC	1104	b0	A/C Clutch Command	ON/OFF
+WACF	162E	b5	WOT A/C Primary Circuit Fault	YES/NO	

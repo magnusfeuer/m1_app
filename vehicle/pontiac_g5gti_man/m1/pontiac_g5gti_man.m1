@@ -1,0 +1,42 @@
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+//
+// Add a Mitsubishi Evo IX manual
+//
+int ind = size(.EngineBaseLib.engine.vehicleProfiles);
+
+type PontiacG5GTIManualProfile: :EngineBaseLib:VehicleProfile {
+    make = "Pontiac";
+    model = "G5";
+    imageFile = "dds/pontiac_g5gti.png";
+    startYear = 2005;
+    stopYear = 0; // Unknown.
+    gearType = 1;
+    curbWeight = 1356; // Curb weight inc driver and fluids.
+    length = 457; // In cm.
+    width = 171;
+    height = 141;
+    wheelBase = 0;
+    displacement =  238; // cubic centimetres. 
+    cylinders = 4;
+    cylinderConfig = 1; // Inline
+    obdIIProtocol = 0; // ISO9141 preset does not yet work.
+    chanProf[.EC.rpm].max = 8000;    
+    chanProf[.EC.rpm].maxWarn = 6500;    
+    chanProf[.EC.rpm].maxCritical = 6750;    
+
+    gearCount = 5;
+    tireWidth = 205;
+    tireSidewallRatio = 50;
+    tireRimDiameter = 17;
+};
+
+.EngineBaseLib.engine.vehicleProfiles[ind] = @PontiacG5GTIManualProfile {};
+
+if (.EngineBaseLib.engine.currentVehicleProfile == -1)
+    .EngineBaseLib.engine.currentVehicleProfile = 0;
+

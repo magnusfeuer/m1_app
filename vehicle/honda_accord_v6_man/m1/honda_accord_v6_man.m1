@@ -1,0 +1,45 @@
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+//
+// Add a Honda Accord V6 Manual
+//
+int ind = size(.EngineBaseLib.engine.vehicleProfiles);
+
+type HondaAccordV6ManProfile: :EngineBaseLib:VehicleProfile {
+    make = "Honda";
+    model = "Accord V6";
+    startYear = 2008;
+    stopYear = 0; //
+    gearType = 1; // Manual
+    curbWeight = 1646; // Curb weight + driver. kg
+    length = 494; // Cm
+    width = 185;
+    height = 148;
+    wheelBase = 0;
+    displacement = 347; // cubic centimetres. 
+    imageFile = "dds/honda_accord_v6.png";
+    obdIIProtocol = 0;
+    gearCount = 6;
+    cylinders = 6;
+    cylinderConfig = 2; // V engine.
+
+    chanProf[.EC.rpm].max = 8000; 
+    chanProf[.EC.rpm].maxWarn = 6500;    
+    chanProf[.EC.rpm].maxCritical = 6800;   
+
+    tireWidth = 235;
+    tireSidewallRatio = 45;
+    tireRimDiameter = 18;
+
+};
+
+.EngineBaseLib.engine.vehicleProfiles[ind] = @HondaAccordV6ManProfile {};
+
+
+// Init current vehicle profile if necessary.
+if (.EngineBaseLib.engine.currentVehicleProfile == -1)
+    .EngineBaseLib.engine.currentVehicleProfile = 0;

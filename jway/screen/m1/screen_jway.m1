@@ -1,0 +1,569 @@
+
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+//
+// Device definition for a specific platform.
+//
+
+library ScreenLib {
+     event time sample <-
+	 @Timer { cycleInterval = 1.0, loop = true }.cycleTime;
+
+
+     Float fpsLayer = @Float { top = 0, left = 0,
+ 			      value = 0,
+			       fontName = "BankGothic Md BT",
+ 			      fontSize = 12,
+ 			      fontWeight = medium,
+ 			      fontColor = 0xFFFFFF,
+ 			      format = "FPS: %.2f" };
+
+    Pbool swapXY = Pbool { key = "core.touch_screen.swap_xy", value = false };
+    Pbool invertX = Pbool { key = "core.touch_screen.invert_x", value = false };
+    Pbool invertY = Pbool { key = "core.touch_screen.invert_y", value = false };
+
+    Psigned minX = Psigned { key = "core.touch_screen.min_x", value = 0 };
+    Psigned maxX = Psigned { key = "core.touch_screen.max_x", value = 640 };
+    Psigned minY = Psigned { key = "core.touch_screen.min_y", value = 0 };
+    Psigned maxY = Psigned { key = "core.touch_screen.max_y", value = 480 };
+
+    type Resolution {
+	string label;
+	string aspectRatio;
+	bool tvOut;
+	bool vgaOut;
+	bool dviOut;
+	float xRes;  // Horizontal resolution in pixels
+	float yRes;  // Vertical resolution in pixels.
+	event bool wideScreen = false;
+	event int realXRes;
+	event int realYRes;
+	event int pixClock; // Pixclock
+	event int leftMargin; // left margin
+	event int rightMargin; // right margin
+	event int upperMargin; // upper margin
+	event int lowerMargin; // lower margin
+	event int hSyncLen; // hSyncLen
+	event int vSyncLen; // vSyncLen
+	event int vMode; // mode
+	event int sync; // sync
+	event string tv_scan; // scan modes
+    };
+
+
+    Resolution resolution[] = {
+	@Resolution { 
+	    label = "VGA+TV narrow screen",
+	    aspectRatio = "6:4",
+	    wideScreen = false,
+	    tvOut = true,
+	    vgaOut = true,
+	    dviOut = false,
+	    xRes = 640.0, 
+	    yRes = 480.0,
+	    realXRes = 640,
+	    realYRes = 480,
+	    pixClock = 39722,
+	    leftMargin = 48,
+	    rightMargin = 16,
+	    upperMargin = 33,
+	    lowerMargin = 10,
+	    hSyncLen = 96,
+	    vSyncLen = 2,
+	    vMode = 0,
+	    sync = 0,
+	    tv_scan = ""
+	},
+	@Resolution { 
+	    label = "VGA narrow screen",
+	    aspectRatio = "6:4",
+	    wideScreen = false,
+	    tvOut = false,
+	    vgaOut = true,
+	    dviOut = false,
+	    xRes = 640.0, 
+	    yRes = 480.0,
+	    realXRes = 640,
+	    realYRes = 480,
+	    pixClock = 39722,
+	    leftMargin = 128,
+	    rightMargin = 24,
+	    upperMargin = 28,
+	    lowerMargin = 9,
+	    hSyncLen = 40,
+	    vSyncLen = 3,
+	    vMode = 0,
+	    sync = 0,
+	    tv_scan = ""
+	},
+//
+// 	@Resolution { 
+// 	    label = "vga 75 hz",
+// 	    aspectRatio = "6:4",
+// 	    wideScreen = false,
+// 	    tvOut = false,
+// 	    vgaOut = true,
+// 	    dviOut = false,
+// 	    xRes = 640.0, 
+// 	    yRes = 480.0,
+// 	    realXRes = 640,
+// 	    realYRes = 480,
+// 	    pixClock = 31747,
+// 	    leftMargin = 120,
+// 	    rightMargin = 16,
+// 	    upperMargin = 16,
+// 	    lowerMargin = 1,
+// 	    hSyncLen = 64,
+// 	    vSyncLen = 3,
+// 	    vMode = 0,
+// 	    sync = 0,
+//	    tv_scan = ""
+// 	},
+// 	@Resolution { 
+// 	    label = "vga 85 hz",
+// 	    aspectRatio = "6:4",
+// 	    wideScreen = false,
+// 	    tvOut = false,
+// 	    vgaOut = true,
+// 	    dviOut = false,
+// 	    xRes = 640.0, 
+// 	    yRes = 480.0,
+// 	    realXRes = 640,
+// 	    realYRes = 480,
+// 	    pixClock = 27777,
+// 	    leftMargin = 80,
+// 	    rightMargin = 56,
+// 	    upperMargin = 25,
+// 	    lowerMargin = 1,
+// 	    hSyncLen = 56,
+// 	    vSyncLen = 3,
+// 	    vMode = 0,
+// 	    sync = 0,
+//	    tv_scan = ""
+// 	},
+	@Resolution { 
+	    label = "VGA widescreen",
+	    aspectRatio = "16:9",
+	    wideScreen = true,
+	    tvOut = false,
+	    vgaOut = true,
+	    dviOut = false,
+	    // Modeline 2 above
+	    xRes = 800.0, 
+	    yRes = 480.0 ,
+	    realXRes = 800,
+	    realYRes = 480,
+	    pixClock = 33805,
+	    leftMargin = 96, 
+	    rightMargin = 16,
+	    upperMargin = 13,
+	    lowerMargin = 1, 
+	    hSyncLen = 88,   
+	    vSyncLen = 3,    
+	    vMode = 0,
+	    sync = 0,
+	    tv_scan = ""
+	},
+// 	@Resolution { 
+// 	    // From Xenarc's site.
+// 	    // Modeline "800x480" 38.55 800 832 976 1032 480 489 495 613 -hsync -vsync
+// 	    //                    DCF   HR  SH1 SH2 HFL  VR  SV1 SV2 VFL
+
+// 	    label = "vga wide 2",
+// 	    aspectRatio = "16:9",
+// 	    wideScreen = true,
+// 	    tvOut = false,
+// 	    vgaOut = true,
+// 	    dviOut = false,
+// 	    // Modeline 2 above
+// 	    xRes = 800.0, 
+// 	    yRes = 480.0 ,
+// 	    realXRes = 800,
+// 	    realYRes = 480,
+// 	    pixClock = 25940,
+// 	    leftMargin = 56, // HFL - SH2 (1032 - 976 = 56)
+// 	    rightMargin = 32, // SH1 = HR (832 - 800 = 32)
+// 	    upperMargin = 118, // VFL - SV2 (613 - 495 = 118)
+// 	    lowerMargin = 1,   // SV1 - VR (489 - 480 = 9)
+// 	    hSyncLen = 140,   // SH2 - SH1 (972 - 832 = 140)
+// 	    vSyncLen = 6,     // SV2 - SV1 (495 - 489 = 6)
+// 	    vMode = 0,
+// 	    sync = 0,
+//	    tv_scan = ""
+// 	},
+// 	@Resolution { 
+// 	    // From Xenarc's site.
+// 	    // Modeline "800x480" 31.746 800 860 940 1000 480 508 511 525 -hsync -vsync
+// 	    //                    DCF    HR  SH1 SH2 HFL  VR  SV1 SV2 VFL
+
+// 	    label = "vga wide 3",
+// 	    aspectRatio = "16:9",
+// 	    wideScreen = true,
+// 	    tvOut = false,
+// 	    vgaOut = true,
+// 	    dviOut = false,
+// 	    // Modeline 2 above
+// 	    xRes = 800.0, 
+// 	    yRes = 480.0 ,
+// 	    realXRes = 800,
+// 	    realYRes = 480,
+// 	    pixClock = 31500,
+// 	    leftMargin = 60,  // HFL - SH2 (100 - 940 = 60)
+// 	    rightMargin = 70, // SH1 = HR (860 - 800 = 60)
+// 	    upperMargin = 14, // VFL - SV2 (525 -511  = 14)
+// 	    lowerMargin = 28,  // SV1 - VR (508 - 480 = 28)
+// 	    hSyncLen = 80,    // SH2 - SH1 (940 - 860 = 80)
+// 	    vSyncLen = 3,     // SV2 - SV1 (511 - 508 = 3)
+// 	    vMode = 0,
+// 	    sync = 0,
+//	    tv_scan = ""
+// 	},
+	@Resolution { 
+	    label = "TV widescreen 1",
+	    aspectRatio = "16:9",
+	    wideScreen = true,
+	    tvOut = true,
+	    vgaOut = false,
+	    dviOut = false,
+	    // Modeline 2 above
+	    xRes = 800.0, 
+	    yRes = 480.0 ,
+	    realXRes = 848,
+	    realYRes = 480,
+	    pixClock = 33805,
+	    leftMargin = 96, 
+	    rightMargin = 16,
+	    upperMargin = 13,
+	    lowerMargin = 1, 
+	    hSyncLen = 88,   
+	    vSyncLen = 3,    
+	    vMode = 0,
+	    sync = 0,
+	    tv_scan = ""
+	},
+	@Resolution { 
+	    label = "TV widescreen 2",
+	    aspectRatio = "16:9",
+	    wideScreen = true,
+	    tvOut = true,
+	    vgaOut = false,
+	    dviOut = false,
+	    // Modeline 2 above
+	    xRes = 800.0, 
+	    yRes = 480.0 ,
+	    realXRes = 848,
+	    realYRes = 480,
+	    pixClock = 33805,
+	    leftMargin = 96, 
+	    rightMargin = 16,
+	    upperMargin = 13,
+	    lowerMargin = 1, 
+	    hSyncLen = 88,   
+	    vSyncLen = 3,    
+	    vMode = 0,
+	    sync = 0,
+	    tv_scan = "over_scan"
+	},
+	@Resolution { 
+	    label = "TV narrow screen 1",
+	    aspectRatio = "6:4",
+	    wideScreen = false,
+	    tvOut = true,
+	    vgaOut = false,
+	    dviOut = false,
+	    // Modeline 2 above
+	    xRes = 640.0, 
+	    yRes = 480.0 ,
+	    realXRes = 640,
+	    realYRes = 480,
+	    pixClock = 33805,
+	    leftMargin = 96, 
+	    rightMargin = 16,
+	    upperMargin = 13,
+	    lowerMargin = 1, 
+	    hSyncLen = 88,   
+	    vSyncLen = 3,    
+	    vMode = 0,
+	    sync = 0,
+	    tv_scan = ""
+	},
+	@Resolution { 
+	    label = "TV narrow screen 2",
+	    aspectRatio = "6:4",
+	    wideScreen = false,
+	    tvOut = true,
+	    vgaOut = false,
+	    dviOut = false,
+	    // Modeline 2 above
+	    xRes = 640.0, 
+	    yRes = 480.0 ,
+	    realXRes = 640,
+	    realYRes = 480,
+	    pixClock = 33805,
+	    leftMargin = 96, 
+	    rightMargin = 16,
+	    upperMargin = 13,
+	    lowerMargin = 1, 
+	    hSyncLen = 88,   
+	    vSyncLen = 3,    
+	    vMode = 0,
+	    sync = 0,
+	    tv_scan = "over_scan"
+	},
+	@Resolution { 
+	    label = "TV narrow screen 3",
+	    aspectRatio = "6:4",
+	    wideScreen = false,
+	    tvOut = true,
+	    vgaOut = false,
+	    dviOut = false,
+	    // Modeline 2 above
+	    xRes = 640.0, 
+	    yRes = 480.0 ,
+	    realXRes = 720,
+	    realYRes = 480,
+	    pixClock = 33805,
+	    leftMargin = 96, 
+	    rightMargin = 16,
+	    upperMargin = 13,
+	    lowerMargin = 1, 
+	    hSyncLen = 88,   
+	    vSyncLen = 3,    
+	    vMode = 0,
+	    sync = 0,
+	    tv_scan = ""
+	},
+	@Resolution { 
+	    label = "TV narrow screen 4",
+	    aspectRatio = "6:4",
+	    wideScreen = false,
+	    tvOut = true,
+	    vgaOut = false,
+	    dviOut = false,
+	    // Modeline 2 above
+	    xRes = 640.0, 
+	    yRes = 480.0 ,
+	    realXRes = 720,
+	    realYRes = 480,
+	    pixClock = 33805,
+	    leftMargin = 96, 
+	    rightMargin = 16,
+	    upperMargin = 13,
+	    lowerMargin = 1, 
+	    hSyncLen = 88,   
+	    vSyncLen = 3,    
+	    vMode = 0,
+	    sync = 0,
+	    tv_scan = "over_scan"
+	},
+// 	@Resolution { 
+// 	    label = "TV wide 60 hz 2",
+// 	    aspectRatio = "16:9",
+// 	    wideScreen = true,
+// 	    tvOut = true,
+// 	    vgaOut = false,
+// 	    dviOut = false,
+// 	    // Modeline 2 above
+// 	    xRes = 800.0, 
+// 	    yRes = 480.0 ,
+// 	    realXRes = 848,
+// 	    realYRes = 480,
+// 	    pixClock = 31756,
+// 	    leftMargin = 104, 
+// 	    rightMargin = 16,
+// 	    upperMargin = 13,
+// 	    lowerMargin = 1, 
+// 	    hSyncLen = 88,   
+// 	    vSyncLen = 3,    
+// 	    vMode = 0,
+// 	    sync = 0
+//	    tv_scan = ""
+// 	},
+// 	@Resolution { 
+// 	    label = "TV wide 60 hz 3",
+// 	    aspectRatio = "16:9",
+// 	    wideScreen = true,
+// 	    tvOut = true,
+// 	    vgaOut = false,
+// 	    dviOut = false,
+// 	    // Modeline 2 above
+// 	    xRes = 800.0, 
+// 	    yRes = 480.0 ,
+// 	    realXRes = 848,
+// 	    realYRes = 480,
+// 	    pixClock = 31518,
+// 	    leftMargin = 104, 
+// 	    rightMargin = 16,
+// 	    upperMargin = 13,
+// 	    lowerMargin = 1, 
+// 	    hSyncLen = 88,   
+// 	    vSyncLen = 3,    
+// 	    vMode = 0,
+// 	    sync = 0
+//	    tv_scan = ""
+// 	},
+	@Resolution { 
+	    label = "DVI narrow screen",
+	    aspectRatio = "6:4",
+	    wideScreen = false,
+	    tvOut = false,
+	    vgaOut = false,
+	    dviOut = true,
+	    // Modeline 2 above
+	    xRes = 640.0, 
+	    yRes = 480.0 ,
+	    realXRes = 640,
+	    realYRes = 480,
+	    pixClock = 31518,
+	    leftMargin = 104, 
+	    rightMargin = 16,
+	    upperMargin = 13,
+	    lowerMargin = 1, 
+	    hSyncLen = 88,   
+	    vSyncLen = 3,    
+	    vMode = 0,
+	    sync = 0,
+	    tv_scan = ""
+	},
+	@Resolution { 
+	    label = "DVI widescreen",
+	    aspectRatio = "16:9",
+	    wideScreen = true,
+	    tvOut = false,
+	    vgaOut = false,
+	    dviOut = true,
+	    // Modeline 2 above
+	    xRes = 800.0, 
+	    yRes = 480.0 ,
+	    realXRes = 800,
+	    realYRes = 480,
+	    pixClock = 31518,
+	    leftMargin = 104, 
+	    rightMargin = 16,
+	    upperMargin = 13,
+	    lowerMargin = 1, 
+	    hSyncLen = 88,   
+	    vSyncLen = 3,    
+	    vMode = 0,
+	    sync = 0,
+	    tv_scan = ""
+	}
+    };
+
+    // Current resolution index into resolui
+    Psigned currentResDB = Psigned { key = "core.screen.res_ind", value = 0 };
+
+    event int _res_updated <- currentResDB.value;
+    event float xRes = @float(resolution[currentResDB.value].xRes);
+    event float yRes = @float(resolution[currentResDB.value].yRes);
+    event float realXRes = @float(resolution[currentResDB.value].realXRes);
+    event float realYRes = @float(resolution[currentResDB.value].realYRes);
+    event bool wideScreen = resolution[currentResDB.value].wideScreen;
+
+    //
+    // Constructor code. 
+    // Setup the core screen and input devices.,
+    //
+    Screen screen =  Screen { 
+	height  <- realYRes,
+	width  <- realXRes,
+	pixelType = "bgra",
+	backendType = "fb",
+	framebufferDevice = "/dev/fb0",
+	frameRate = 30,
+	wantFocus = true,
+	pixClock = resolution[currentResDB.value].pixClock,
+	leftMargin = resolution[currentResDB.value].leftMargin,
+	rightMargin = resolution[currentResDB.value].rightMargin,
+	upperMargin = resolution[currentResDB.value].upperMargin,
+	lowerMargin = resolution[currentResDB.value].lowerMargin,
+	hsyncLen = resolution[currentResDB.value].hSyncLen,
+	vsyncLen = resolution[currentResDB.value].vSyncLen,
+	sync = resolution[currentResDB.value].sync,
+	tvScan = resolution[currentResDB.value].tv_scan,
+	tvDeDotCrawl = "false",
+        tvOutputSignal = "composite",
+        tvSystem = "ntsc",
+        tvHeight = 2,
+        tvWidth = 2,
+
+//	vmode = resolution[currentResDB.value].vMode,
+	children = { }
+    };
+
+    //
+    // Setup a top level strategy that works directly on the screen.
+    //
+    InputStrategy inputStrategy = InputStrategy { layer = screen };
+
+    //
+    // Setup a touchscreen device.
+    //
+    TouchScreenDevice touchscreen = TouchScreenDevice {
+	inputStrategy = inputStrategy,
+	maxUnscaledX <- maxX.value,
+	maxUnscaledY <- maxY.value,
+	minUnscaledX <- minX.value,
+	minUnscaledY <- minY.value,
+	invertX <- invertX.value,
+	invertY <- invertY.value,
+	scaledWidth <- realXRes,
+	scaledHeight <- realYRes,
+	swapXY <- swapXY.value,
+	device = "/dev/event%d"
+    };
+
+    // script for updating the fps counter
+     script sample {
+         fpsLayer.value =  .M1.fps;
+     }
+
+    script _res_updated  {
+	string act_dev = "";
+    	xRes = @float(resolution[currentResDB.value].xRes);
+	yRes = @float(resolution[currentResDB.value].yRes);
+	realXRes = @float(resolution[currentResDB.value].realXRes);
+	realYRes = @float(resolution[currentResDB.value].realYRes);
+	screen.pixClock = resolution[currentResDB.value].pixClock;
+	screen.leftMargin = resolution[currentResDB.value].leftMargin;
+	screen.rightMargin = resolution[currentResDB.value].rightMargin;
+	screen.upperMargin = resolution[currentResDB.value].upperMargin;
+	screen.lowerMargin = resolution[currentResDB.value].lowerMargin;
+	screen.hsyncLen = resolution[currentResDB.value].hSyncLen;
+	screen.vsyncLen = resolution[currentResDB.value].vSyncLen;
+//	screen.vmode = resolution[currentResDB.value].vMode;
+	screen.sync = resolution[currentResDB.value].sync;
+	wideScreen = resolution[currentResDB.value].wideScreen;
+	screen.tvScan = resolution[currentResDB.value].tv_scan;
+
+	//
+	// Setup an active device map.
+	//
+	if (resolution[currentResDB.value].vgaOut){ 
+	    act_dev = "CRT";
+	}
+
+	if (resolution[currentResDB.value].tvOut) {
+	    if (act_dev != "")
+		act_dev = act_dev + "+TV";
+	    else
+		act_dev = "TV";
+	}
+
+	if (resolution[currentResDB.value].dviOut) {
+	    if (act_dev != "")
+		act_dev = act_dev + "+DVI";
+	    else
+		act_dev = "DVI";
+	}
+
+	printf("Setting active device to [%s]\n", act_dev);
+	screen.activeDevice = act_dev;
+    }
+}
+
+

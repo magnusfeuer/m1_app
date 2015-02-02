@@ -1,0 +1,43 @@
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+//
+// Add a Nissan 350Z Manual configuration.
+//
+int ind = size(.EngineBaseLib.engine.vehicleProfiles);
+
+type Nissan350ZManual: :EngineBaseLib:VehicleProfile {
+    make = "Nissan";
+    model = "350Z";
+    imageFile = "dds/nissan_350z.png";
+    startYear = 2003;
+    stopYear = 0; // Unknown.
+    gearType = 1; // manual
+    curbWeight = 1630; // Curb weight + driver.
+    length = 430; // In cm.
+    width = 181;
+    height = 132;
+    wheelBase = 0;
+    displacement =  350; // cubic centimetres. 
+    cylinders = 6;
+    cylinderConfig = 2; // V engine.
+    isoGapTime = 3; // 207 msec response time
+    obdIIProtocol = 0; // ISO9141 preset does not yet work.
+    gearCount = 6;
+    tireWidth=245;
+    tireRimDiameter=18;
+    tireSidewallRatio=45;
+
+    chanProf[.EC.rpm].max = 8000;    
+    chanProf[.EC.rpm].maxWarn = 5750;    
+    chanProf[.EC.rpm].maxCritical = 6500;
+};
+
+.EngineBaseLib.engine.vehicleProfiles[ind] = @Nissan350ZManual {};
+
+if (.EngineBaseLib.engine.currentVehicleProfile == -1)
+    .EngineBaseLib.engine.currentVehicleProfile = 0;
+

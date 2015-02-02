@@ -1,0 +1,43 @@
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+//
+// Subary WRX STI Manual transmission
+//
+int ind = size(.EngineBaseLib.engine.vehicleProfiles);
+
+type SubaruWRXSTIManualProfile: :EngineBaseLib:VehicleProfile {
+    make = "Subaru";
+    model = "WRX STI";
+    imageFile = "dds/subaru_wrx_sti.png";
+    startYear = 2004;
+    stopYear = 2007; // Unknown.
+    gearType = 1;
+    curbWeight = 1560; // Curb weight + driver.
+    length = 441; // In cm.
+    width = 174;
+    height = 143;
+    wheelBase = 0;
+    displacement =  250; // cubic centimetres. 
+    cylinders = 4;
+    cylinderConfig = 3; // Boxer
+    obdIIProtocol = 0; // ISO9141 preset does not yet work.
+
+    gearCount = 6;
+    tireWidth=225;
+    tireRimDiameter=17;
+    tireSidewallRatio=45;
+
+    chanProf[.EC.rpm].max = 9000;    
+    chanProf[.EC.rpm].maxWarn = 6750;    
+    chanProf[.EC.rpm].maxCritical = 7000;   
+};
+
+.EngineBaseLib.engine.vehicleProfiles[ind] = @SubaruWRXSTIManualProfile {};
+
+if (.EngineBaseLib.engine.currentVehicleProfile == -1)
+    .EngineBaseLib.engine.currentVehicleProfile = 0;
+

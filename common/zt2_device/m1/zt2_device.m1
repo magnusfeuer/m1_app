@@ -1,0 +1,357 @@
+// -*- c++ -*-
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007, 2008.
+//
+
+//
+// High level logic for the Magden AD device plugin.
+//
+library ZT2Lib {
+    //
+    // An ADDevice with a number of AD channels.
+    //
+    int zt2_offset = size(.ADLib.sensorTypes);
+    int zt2_lambda = 0 + zt2_offset;
+    int zt2_egt = 1 + zt2_offset;
+    int zt2_rpm = 2 + zt2_offset;
+    int zt2_kav10bar_fixed = 3 + zt2_offset;
+    int zt2_kav3_5bar_fixed = 4 + zt2_offset;
+    int zt2_kav5bar_fixed = 5 + zt2_offset;
+    int zt2_0_25x = 6 + zt2_offset;
+    int zt2_0_5x = 7 + zt2_offset;
+    int zt2_2x = 8 + zt2_offset;
+    int zt2_4x = 9 + zt2_offset;
+    int zt2_8x = 10 + zt2_offset;
+    int zt2_kav10bar = 11 + zt2_offset;
+    int zt2_kav3_5bar = 12 + zt2_offset;
+    int zt2_kav5bar = 13 + zt2_offset;
+    int zt2_temp = 14 + zt2_offset;
+
+
+    type M1ZT2Channel: :ADLib:Device:Channel {
+	ScalarInterpolator map= nil; // Copied from sensorTypes.
+	ZT2Device rawDevice; // C++ class
+	int currentChannel = -1; // Used to keep track of supported
+	    
+	// Enable or disable the sampling from the given channel
+
+	script sensorType when index == 6 {
+	    rawDevice.rpm_multiplier = 1.0;
+	    if (sensorType ==  zt2_0_25x) rawDevice.rpm_multiplier = 0.25;
+	    if (sensorType ==  zt2_0_5x) rawDevice.rpm_multiplier = 0.5;
+	    if (sensorType ==  zt2_2x) rawDevice.rpm_multiplier = 2;
+	    if (sensorType ==  zt2_4x) rawDevice.rpm_multiplier = 4;
+	    if (sensorType ==  zt2_8x) rawDevice.rpm_multiplier = 8;
+	    break;
+	}
+
+	script ~M1ZT2Channel {
+	    printf("M1ZT2Channel::~M1ZT2Channel(): Called\n");
+	    if (map != nil) 
+		map.fraction <- nil;
+
+	    if (engineChannel != -1)
+		.EngineBaseLib.engine.channels[engineChannel].value <- nil;
+	}
+
+	//
+	// The sensor or engine channel we use has been updated. Setup the engine channel
+	//
+	script sensorType || engineChannel when 
+	    sensorType != -1 &&
+	    sensorType != 0 && 
+	    index != 6 && 
+	    engineChannel != -1 {
+	    map := .ADLib.sensorTypes[sensorType].map;
+		
+	    printf("sensorType[%d] index[%d] engineChannel[%d]\n", sensorType, index, engineChannel);
+	    // FUGLY!
+
+	    if (index == 0) { map.fraction <- rawDevice.rpm; map.fraction = rawDevice.rpm; }
+	    if (index == 1) { map.fraction <- rawDevice.lam;map.fraction = rawDevice.lam; }
+	    if (index == 2) { map.fraction <- rawDevice.egt;map.fraction = rawDevice.egt; }
+	    if (index == 3) { map.fraction <- rawDevice.map;map.fraction = rawDevice.map; }
+	    if (index == 4) { map.fraction <- rawDevice.tps;map.fraction = rawDevice.tps; }
+	    if (index == 5) { map.fraction <- rawDevice.user1;map.fraction = rawDevice.user1; }
+
+	    .EngineBaseLib.engine.channels[engineChannel].value <- map.value;
+	    .EngineBaseLib.engine.channels[engineChannel].value = map.value;
+
+	    if (size(map.keyValue) > 0) {
+		.EngineBaseLib.engine.channels[engineChannel].min = map.keyValue[0];
+		.EngineBaseLib.engine.channels[engineChannel].max = map.keyValue[size(map.keyValue) - 1];	
+	    }
+	    
+
+	    //
+	    // Disable support of old channel
+	    //
+	    if (currentChannel != -1) {
+		printf("ZT2Channel[%d/%d]: Disabling support for [%s]\n", 
+		       index, currentChannel, .EngineBaseLib.engine.channels[currentChannel].descriptor.name);
+
+		.EngineBaseLib.engine.channels[currentChannel].supported = false;
+	    }
+
+	    // Enable support of new channel.
+	    printf("ZT2Channel[%d]: Enabling support for [%s]\n", index,  .EngineBaseLib.engine.channels[engineChannel].descriptor.name);
+	    .EngineBaseLib.engine.channels[engineChannel].supported = true;
+	    currentChannel = engineChannel;
+
+	}
+
+	// Constructor.
+	script M1ZT2Channel {
+	    currentChannel = -1; 
+	    // Subscribe to if the sensor we use has been updated.
+
+	    sensorType <- sensorTypeDB.value;
+	    engineChannel <- engineLabelDB.value;
+	    *sensorType = sensorTypeDB.value; // Trigger sensor script
+	}
+    };
+    
+    //
+    // Objects of this type is created by the DeviceManager/M1ZT2DeviceProd 
+    // in zt2_producer.m1 and ad_manager.m1
+    //
+    type M1ZT2Device: :ADLib:Device {
+	ZT2Device rawDevice;
+	event int cur_veh_profile = -1;
+
+	script M1ZT2Device {
+	    int i;
+
+	    printf("M1ZT2Device::M1ZT2Device(): Called\n device=%s\n", device);
+	    rawDevice = @ZT2Device { port = device };
+	    channels = {
+		@M1ZT2Channel { 
+		    owner = this,
+		    index = 0,
+		    name = "digital count",
+		    rawDevice = rawDevice,
+		    sensorTypes = { 
+			.ADLib.unused,
+			zt2_rpm
+		    } 
+		},
+
+		@M1ZT2Channel { 
+		    owner = this,
+		    index = 1, 
+		    name = "air/fuel ratio",
+		    rawDevice = rawDevice, 
+		    sensorTypes = {
+			.ADLib.unused, 
+			zt2_lambda 
+		    }
+		},
+
+		@M1ZT2Channel { 
+		    owner = this,
+		    index = 2,
+		    name = "exhst gas temp",
+		    rawDevice = rawDevice,
+		    sensorTypes = { 
+			.ADLib.unused,
+			zt2_egt 
+		    } 
+		},
+
+		@M1ZT2Channel {
+		    owner = this,
+		    index = 3,
+		    name = "pressure 1",
+		    rawDevice = rawDevice,
+		    sensorTypes = { 
+			.ADLib.unused,
+			zt2_kav3_5bar_fixed,
+			zt2_kav5bar_fixed,
+			zt2_kav10bar_fixed
+		    } 
+		},
+
+		@M1ZT2Channel {
+		    owner = this,
+		    index = 4,
+		    name = "pressure 2",
+		    rawDevice = rawDevice,
+		    sensorTypes = { 
+			.ADLib.unused,
+			zt2_kav10bar
+		    }
+		},
+
+		@M1ZT2Channel {
+		    owner = this,
+		    index = 5,
+		    name = "aux temp",
+		    rawDevice = rawDevice,
+		    sensorTypes = { 
+			.ADLib.unused,
+			zt2_temp 
+		    }
+		},
+		@M1ZT2Channel {
+		    owner = this,
+		    index = 6,
+		    name = "rpm multiplier",
+		    rawDevice = rawDevice,
+		    sensorTypes = { 
+			.ADLib.unused,
+			zt2_0_25x,
+			zt2_0_5x,
+			zt2_2x,
+			zt2_4x,
+			zt2_8x
+		    }
+		}
+	    };
+
+	    // Setup cylinder count subscription
+	    cur_veh_profile <- .EngineBaseLib.engine.currentVehicleProfile;
+
+	}
+
+	script ~M1ZT2Device {
+	    printf("M1ZT2Device::~M1ZT2Device(): Destructor called\n");
+	    
+
+	}
+	//
+	// Update cylinder count in raw manager to get correct RPM reading.
+	//
+	script cur_veh_profile when cur_veh_profile != -1{
+	    rawDevice.cylinder_count = .EngineBaseLib.engine.vehicleProfiles[cur_veh_profile].cylinders;
+	}
+    };
+    
+    //
+    // Library loader constructor code
+    //
+    script ZT2Lib {
+	// 0 - Lambda. 
+	.ADLib.sensorTypes += @:ADLib:SensorType { 
+	    name = "active",
+		map = @ScalarInterpolator { 
+		key = { 0.0, 2.0 }, 
+		keyValue = { 0.0, 2.0 } 
+	    }, 
+		engineChannels = { .EC.lam_1_1_l, .EC.lam_1_2_l, .EC.lam_2_1_l, .EC.lam_2_2_l }
+	};
+	// 1 - EGT
+	.ADLib.sensorTypes += @:ADLib:SensorType { 
+	    name = "active",
+		map = @ScalarInterpolator { 
+		key = { 200.0, 201.0, 1200.0 }, 
+		keyValue = { 0.0, 201.0, 1200.0 } 
+	    }, 
+		engineChannels = { .EC.egt1_c, .EC.egt2_c, .EC.egt3_c, .EC.egt4_c, .EC.egt5_c, .EC.egt6_c, .EC.egt7_c, .EC.egt8_c }
+	};
+	// 2 - RPM
+	.ADLib.sensorTypes += @:ADLib:SensorType { 
+	    name = "active",
+		map = @ScalarInterpolator { 
+		key = { 0.0, 12000.0 }, 
+		keyValue = { 0.0, 12000.0 } 
+	    }, 
+		engineChannels = { .EC.rpm }
+	};
+	// 3 - Kavlico 1-10bar gauge fixed on boost channel
+	.ADLib.sensorTypes += @:ADLib:SensorType { 
+	    name = "kav 1-10 bar",
+		map = @ScalarInterpolator { 
+		key = { -255.0, -238.0, -174.0, -40.0, 0.0, 48.0, 180.0, 249.0},
+		keyValue = { 0.0, 689.0, 1379.0, 2758.0, 2979.0, 4137.0, 6895.0, 8273.0  }
+	    }, 
+		engineChannels = { .EC.ccp_mbar, .EC.eop_mbar, .EC.fp_mbar, .EC.wp_mbar }
+	};
+	// 4 - Kavlico 0-3.5bar gauge fixed on boost channel
+	.ADLib.sensorTypes += @:ADLib:SensorType { 
+	    name = "kav 0-3.5 bar",
+		map = @ScalarInterpolator { 
+		key = { -255.0, 0.0, 80.0, 178.0, 328.0, 347.0},
+		keyValue = { 153.0, 1013.0, 1702.0, 2392.0, 3426.0, 3530.0 }
+	    }, 
+		engineChannels = { .EC.map_mbar, .EC.bip_mbar, .EC.aip_mbar }
+	};
+	// 5 -  Kavlico 0-5bar gauge fixed on boost channel
+	.ADLib.sensorTypes += @:ADLib:SensorType { 
+	    name = "kav 0-5 bar",
+		map = @ScalarInterpolator { 
+		key = { -255, -112.0, 0.0, 67.0, 202.0, 330.0  },
+		keyValue = { 253.0, 1013.0, 1702.0, 2391.0, 3771.0, 5150.0 }
+	    }, 
+		engineChannels = { .EC.map_mbar }
+	};
+	// 6 - 0.25 multiplier
+	.ADLib.sensorTypes += @:ADLib:SensorType { 
+	    name = "rpm x 0.25",
+		engineChannels = { }
+	};
+	// 7 - 0.5 multiplier
+	.ADLib.sensorTypes += @:ADLib:SensorType { 
+	    name = "rpm x 0.5",
+		engineChannels = { }
+	};
+	// 8 -  2x multiplier
+	.ADLib.sensorTypes += @:ADLib:SensorType { 
+	    name = "rpm x 2",
+		engineChannels = { }
+	};
+	// 9 -  4xmultiplier
+	.ADLib.sensorTypes += @:ADLib:SensorType { 
+	    name = "rpm x 4",
+		engineChannels = { }
+	};
+	// 10 -  8x multiplier
+	.ADLib.sensorTypes += @:ADLib:SensorType { 
+	    name = "rpm x 8",
+		engineChannels = { }
+	};
+	// 11 - Kavlico 1-10bar gauge tps
+	.ADLib.sensorTypes += @:ADLib:SensorType { 
+	    name = "kav 1-10 bar",
+		map = @ScalarInterpolator { 
+		key = { 0.0, 7.5, 12.5, 15.0, 17.5, 22.5,  27.5, 30.0, 32.5, 52.0, 72.5,  107.5, 252.0 },
+		keyValue = { 0.0, 517.1, 551, 690.0, 827.3, 965.3,  1103.0, 1241.1, 1379.0, 2068.4, 2758.0, 4137.0, 9500.0 }
+	    }, 
+		engineChannels = { .EC.fp_mbar, .EC.wp_mbar, .EC.eop_mbar, .EC.ccp_mbar }
+	};
+	// 12 - Kavlico 0-3.5bar gauge tps
+	.ADLib.sensorTypes += @:ADLib:SensorType {  // INCORRECTLY MAPPED
+	    name = "kav 0-3.5 bar",
+		map = @ScalarInterpolator { 
+		key = { 0.0, 20.0,  30.0, 35.0, 80.0, 142.5, 230.0 },
+		keyValue = { 0.0, 133.0, 268.0, 1013.0, 1702.0, 2392.0,  3426.0 }
+	    }, 
+		engineChannels = { .EC.bip_mbar, .EC.aip_mbar,  .EC.bap_mbar } // ADD EBP
+	};
+	// 13 - Kavlico 0-5bar gauge tps
+	.ADLib.sensorTypes += @:ADLib:SensorType {  // INCORRECTLY MAPPED
+	    name = "kav 0-5 bar", 
+		map = @ScalarInterpolator { 
+		key = { 37.0, 75.0, 122.5, 180.0, 240 },
+		keyValue = { 163.0, 1013.0, 2392.0, 3771.0,  5150.0 }
+	    },
+		engineChannels = { .EC.bip_mbar, .EC.aip_mbar,  .EC.bap_mbar } // ADD EBP
+	};
+
+	// 14 - temp (connected to user1) Bosh 039 or 026
+	.ADLib.sensorTypes += @:ADLib:SensorType {  // 14
+	    name = "active",
+		map = @ScalarInterpolator { 
+		key = { 0.0, 5.0, 7.0, 8.0, 11.0, 14.0, 18.0, 23.0, 30.0, 38.0, 
+			54.0, 64.0, 88.0, 113.0, 139.0, 161.0, 193.0, 210.0, 228.0, 239.0, 255.0 }, 
+		keyValue = { 160.0, 140.0, 132.0, 120.0, 110.0, 100.0, 90.0, 80.0, 70.0, 
+			     60.0, 50.0, 40.0, 30.0, 20.0, 10.0, 0.0, -10.0, -20.0, -30.0, -40.0, 0.0 } 
+	    }, 
+		engineChannels = { .EC.ect_c, .EC.eot_c, .EC.fdt_c, .EC.rdt_c, .EC.cdt_c, .EC.gbt_c, .EC.ft_c,
+				   .EC.iat_c, .EC.aat_c, .EC.egt1_c, .EC.egt2_c, .EC.egt3_c, 
+				   .EC.egt4_c, .EC.egt5_c, .EC.egt6_c, .EC.egt7_c, .EC.egt8_c, 
+				   .EC.bit_c, .EC.ait_c }
+	};
+    }
+}

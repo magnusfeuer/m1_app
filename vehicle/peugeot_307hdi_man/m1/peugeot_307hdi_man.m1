@@ -1,0 +1,42 @@
+//
+// All rights reserved. Reproduction, modification, use or disclosure
+// to third parties without express authority is forbidden.
+// Copyright Magden LLC, California, USA, 2004, 2005, 2006, 2007.
+//
+
+//
+// Add a Peugeout 307 HDI 
+//
+int ind = size(.EngineBaseLib.engine.vehicleProfiles);
+
+type Peugeot307HDIMan: :EngineBaseLib:VehicleProfile {
+    make = "Peugeot";
+    model = "307 HDI";
+    imageFile = "dds/peugeot_307hdi_man.png.png";
+    startYear = 2007;
+    stopYear = 2007; // Unknown.
+    gearType = 1; // manual
+    curbWeight = 1400; // Curb weight + driver.
+    length = 421; // In cm.
+    width = 175;
+    height = 151;
+    wheelBase = 261;
+    displacement =  160; // cubic centimetres. 
+    cylinders = 4;
+    cylinderConfig = 1; // Inline
+    obdIIProtocol = 0; // ISO9141 preset does not yet work.
+    tireWidth = 195;                            // Stock tire width.
+    tireSidewallRatio = 65;                     // Stock tire sidewall raito.
+    tireRimDiameter = 15;                       // Stock tire rim diameter
+    isoGapTime = 3; // Seems to work fine.
+    gearCount = 5;
+    chanProf[.EC.rpm].max = 6000;    
+    chanProf[.EC.rpm].maxWarn = 4000;    
+    chanProf[.EC.rpm].maxCritical = 5400;   
+};
+
+.EngineBaseLib.engine.vehicleProfiles[ind] = @Peugeot307HDIMan {};
+
+if (.EngineBaseLib.engine.currentVehicleProfile == -1)
+    .EngineBaseLib.engine.currentVehicleProfile = 0;
+
