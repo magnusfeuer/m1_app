@@ -1,0 +1,5 @@
+//
+// Just setup the source for the PiSYS3 data stream
+// 
+.EngineLib.device.port = "launch/caterhamdump.pi3";
+.ADDeviceLib.adDevice.port = "sim"; // Trigger simulation mode.
