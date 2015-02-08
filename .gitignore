@@ -5,6 +5,24 @@
 *.obj
 *.dds
 
+common/circles/dds/
+src/circles/bgra_dds/
+src/circles/built
+src/circles/src_images
+
+src/lifestyle/bgra_dds/
+src/lifestyle/built
+src/lifestyle/src_images
+
+src/traditional/bgra_dds/
+src/traditional/built
+src/traditional/src_images
+
+src/gui/bgra_dds/
+src/gui/built
+src/gui/src_images
+
+common//dds/
 # Precompiled Headers
 *.gch
 *.pch
