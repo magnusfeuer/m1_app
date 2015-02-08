@@ -7,7 +7,7 @@
 //
 // High level logic for the Magden AD device plugin.
 //
-library ADLib {
+library ADDeviceLib {
     //
     // An ADDevice with a number of AD channels.
     //
@@ -23,7 +23,7 @@ library ADLib {
 	    ScalarInterpolator map; // Copied from sensorProfiles.
 	    ADDevice owner;
 	    int currentChannel = -1; // Used to keep track of supported
-	    int supportedSensorTypes[]; // contains indexes into .ADSensorLib.sensorTypes[]
+	    int supportedSensorTypes[]; // contains indexes into .ADLib.sensorTypes[]
 	    
 	    // Enable or disable the sampling from the given channel
 	    
@@ -34,7 +34,7 @@ library ADLib {
 
 	    script usage when usage != 0 {
 		printf("ADChanne[%d]: Usage [%d].\n", index, usage);
-		owner.channels[index].sampleInterval = .ADSensorLib.sensorTypes[sensor].sampleInterval;
+		owner.channels[index].sampleInterval = .ADLib.sensorTypes[sensor].sampleInterval;
 	    }
 
 	    //
@@ -44,7 +44,7 @@ library ADLib {
 		printf("ADChannel[%d]: sensor[%d] engChannel[%d]\n", index, sensor, engChannel);
 		usage <- .EngineBaseLib.engine.channels[engChannel].usage;	
 		*usage = .EngineBaseLib.engine.channels[engChannel].usage; // Trigger usage script.
-	        map := .ADSensorLib.sensorTypes[sensor].map;
+	        map := .ADLib.sensorTypes[sensor].map;
 		map.fraction <- @float(owner.channels[index].value);
 		
 		.EngineBaseLib.engine.channels[engChannel].value <- map.value;;
@@ -63,7 +63,7 @@ library ADLib {
 
 	    script ADChannel {
 		currentChannel = -1; 
-		// Which type of sensor do we use. Index into .ADSensorLib.sensorTypes
+		// Which type of sensor do we use. Index into .ADLib.sensorTypes
 		sensorTypeDB = @Psigned { key = sprintf("core.ad.%d.sensor", index), value = -1 };
 
 		// Which engine channel is this AD channel tied to. Index into .EngineBaseLib.engine.channels
@@ -83,7 +83,7 @@ library ADLib {
 
 	    // Setup sensors based.
 	    foreach i in [0:size(channels) - 1] {
-		sensorChannels[i] = @ADChannel { name = sprintf("channel %d", i), index = i, owner = this, supportedSensorTypes = { .ADSensorLib.unused } }; 
+		sensorChannels[i] = @ADChannel { name = sprintf("channel %d", i), index = i, owner = this, supportedSensorTypes = { .ADLib.unused } }; 
  	    }
 	}
     };

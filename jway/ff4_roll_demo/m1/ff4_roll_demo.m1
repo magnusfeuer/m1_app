@@ -212,7 +212,7 @@ application FF4 {
     underlay.top <- .ScreenLib.screen.height / 2 - underlay.contentHeight / 2;
 
     .EngineLib.device.port = "launch/caterhamdump.pi3";
-    .ADLib.adDevice.port = "sim"; // Trigger simulation mode.
+    .ADDeviceLib.adDevice.port = "sim"; // Trigger simulation mode.
     .ScreenLib.screen.children[size(.ScreenLib.screen.children)] = underlay;
     .EngineLib.device.readInterval = 15000;
     .EngineBaseLib.engine.vehicleProfiles[0].chanProf[.EC.map_psiin].maxWarn = 15;
