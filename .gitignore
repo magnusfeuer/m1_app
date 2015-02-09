@@ -22,8 +22,11 @@ src/gui/built
 src/gui/src_images
 
 common/circles/dds/*.dds
+common/circles/dds/*.png
 common/lifestyle/dds/*.dds
+common/lifestyle/dds/*.png
 common/traditional/dds/*.dds
+common/traditional/dds/*.png
 
 # Precompiled Headers
 *.gch
