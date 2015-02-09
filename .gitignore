@@ -5,7 +5,6 @@
 *.obj
 *.dds
 
-common/circles/dds/
 src/circles/bgra_dds/
 src/circles/built
 src/circles/src_images
@@ -22,7 +21,10 @@ src/gui/bgra_dds/
 src/gui/built
 src/gui/src_images
 
-common//dds/
+common/circles/dds/*.dds
+common/lifestyle/dds/*.dds
+common/traditional/dds/*.dds
+
 # Precompiled Headers
 *.gch
 *.pch
