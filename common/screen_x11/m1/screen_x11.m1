@@ -101,7 +101,7 @@ library ScreenLib {
 //
     InputStrategy inputStrategy = InputStrategy { layer = screen };
 
-    EpicInputDevice touchscreen = EpicInputDevice {
+    EpxInputDevice touchscreen = EpxInputDevice {
  	inputStrategy = inputStrategy,
  	screen = screen, // Used to extract mouse
  	maxUnscaledX <- maxX.value,
