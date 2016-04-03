@@ -520,6 +520,7 @@ library ScreenLib {
     // script for updating the fps counter
      script sample {
          fpsLayer.value =  .M1.fps;
+	 printf("fps=%f\n", fpsLayer.value);
      }
 
     script _res_updated  {
